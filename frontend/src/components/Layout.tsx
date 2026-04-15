@@ -57,7 +57,7 @@ function Layout({ children, title }: LayoutProps) {
             <img 
               src="/logo.png" 
               alt="Renacer" 
-              className="h-12 w-auto"
+              className="h-16 w-auto"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
@@ -87,7 +87,7 @@ function Layout({ children, title }: LayoutProps) {
               <img 
                 src="/logo.png" 
                 alt="Renacer" 
-                className="h-10 w-auto"
+                className="h-12 w-auto"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -115,8 +115,18 @@ function Layout({ children, title }: LayoutProps) {
             <button onClick={() => setMenuAbierto(true)} className="md:hidden text-2xl text-renacer-600">
               ☰
             </button>
-            <Link to="/" className="text-lg md:text-xl font-bold text-renacer-600 hover:text-renacer-700 transition">
-              🏠 Inicio
+            <Link to="/" className="flex items-center gap-2">
+              <img 
+                src="/logo.png" 
+                alt="Renacer" 
+                className="h-8 w-auto"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <span className="text-lg md:text-xl font-bold text-renacer-600 hover:text-renacer-700 transition">
+                Inicio
+              </span>
             </Link>
           </div>
           <h2 className="text-lg md:text-xl font-semibold text-texto">{title}</h2>

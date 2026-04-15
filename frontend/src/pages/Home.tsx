@@ -7,13 +7,33 @@ function Home() {
   const [resultado, setResultado] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorValidacion, setErrorValidacion] = useState('');
+
+  // Validar cédula venezolana (6-9 dígitos, solo números)
+  const validarCedula = (value: string): boolean => {
+    if (!value) return false;
+    const numeros = /^\d+$/.test(value);
+    const longitud = value.length >= 6 && value.length <= 9;
+    return numeros && longitud;
+  };
 
   const buscar = async () => {
-    if (!cedula.trim()) return;
+    // Limpiar errores previos
+    setError('');
+    setErrorValidacion('');
+    
+    // Validar cédula
+    if (!cedula.trim()) {
+      setErrorValidacion('Por favor ingrese un número de cédula');
+      return;
+    }
+    
+    if (!validarCedula(cedula)) {
+      setErrorValidacion('La cédula debe tener entre 6 y 9 dígitos numéricos');
+      return;
+    }
     
     setLoading(true);
-    setError('');
-    setResultado(null);
     
     try {
       const response = await api.get(`/vendedora/buscar/${cedula}`);
@@ -22,6 +42,15 @@ function Home() {
       setError(err.response?.data?.mensaje || 'Vendedora no encontrada');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Solo permitir números
+    if (value === '' || /^[0-9]+$/.test(value)) {
+      setCedula(value);
+      setErrorValidacion('');
     }
   };
 
@@ -49,11 +78,11 @@ function Home() {
       <header className="bg-white shadow-sm py-4 px-6 border-b">
         <div className="container mx-auto max-w-4xl">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <img 
                 src="/logo.png" 
                 alt="Renacer" 
-                className="h-10 w-auto"
+                className="h-16 w-auto"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -87,25 +116,40 @@ function Home() {
         {/* Tarjeta de búsqueda */}
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-renacer-100 rounded-full mb-4">
-              <span className="text-3xl">🔍</span>
+            {/* Logo dentro del círculo - reemplaza la lupa */}
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-renacer-100 rounded-full mb-4 p-2">
+              <img 
+                src="/logo.png" 
+                alt="Renacer" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  // Si no hay logo, mostrar un ícono por defecto
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<span class="text-3xl">🔍</span>';
+                  }
+                }}
+              />
             </div>
             <h3 className="text-xl font-semibold text-texto">
               Consulta de Vendedoras
             </h3>
             <p className="text-texto-claro text-sm mt-1">
-              Ingrese el número de cédula para verificar el historial
+              Ingrese el número de cédula (6 a 9 dígitos)
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
-              placeholder="Número de cédula"
+              placeholder="Ej: 12345678"
               value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
+              onChange={handleCedulaChange}
               onKeyPress={(e) => e.key === 'Enter' && buscar()}
               className="flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500 focus:border-transparent text-center text-lg"
+              inputMode="numeric"
+              maxLength={9}
             />
             <button
               onClick={buscar}
@@ -115,9 +159,16 @@ function Home() {
               {loading ? 'Buscando...' : 'Consultar'}
             </button>
           </div>
+
+          {/* Mensaje de validación */}
+          {errorValidacion && (
+            <div className="mt-3 text-amber-600 text-sm text-center">
+              ⚠️ {errorValidacion}
+            </div>
+          )}
         </div>
 
-        {/* Mensaje de error */}
+        {/* Mensaje de error de API */}
         {error && (
           <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
             <div className="flex items-center gap-3">
