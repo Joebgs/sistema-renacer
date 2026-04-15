@@ -27,10 +27,10 @@ function Home() {
 
   const getColorReputacion = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return 'text-green-600 bg-green-50';
-      case 'OBSERVADA': return 'text-yellow-600 bg-yellow-50';
-      case 'RESTRINGIDA': return 'text-red-600 bg-red-50';
-      default: return 'text-blue-600 bg-blue-50';
+      case 'POSITIVA': return 'text-green-600 bg-green-50 border-green-200';
+      case 'OBSERVADA': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'RESTRINGIDA': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-blue-600 bg-blue-50 border-blue-200';
     }
   };
 
@@ -44,76 +44,131 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-md py-3 px-4 flex justify-between items-center">
-        <Link to="/" className="text-lg md:text-2xl font-bold text-gray-800 hover:text-blue-600 transition">
-          Renacer Check In
-        </Link>
-        <a href="/login" className="text-blue-600 text-sm md:text-base hover:text-blue-800">
-          Iniciar Sesión
-        </a>
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Header */}
+      <header className="bg-white shadow-sm py-4 px-6 border-b">
+        <div className="container mx-auto max-w-4xl">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/logo.png" 
+                alt="Renacer" 
+                className="h-10 w-auto"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <h1 className="text-xl md:text-2xl font-bold text-renacer-600">
+                Renacer Check In
+              </h1>
+            </div>
+            <Link 
+              to="/login" 
+              className="text-renacer-600 hover:text-renacer-700 text-sm md:text-base font-medium"
+            >
+              Iniciar Sesión
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
-        <div className="text-center mb-6 md:mb-8">
-          <h2 className="text-xl md:text-3xl font-bold text-gray-800 mb-2">
-            Sistema Check-In Renacer
+      {/* Contenido principal */}
+      <main className="flex-1 container mx-auto px-4 py-12 max-w-2xl">
+        {/* Tarjeta de bienvenida */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-texto mb-4">
+            Sistema de Consulta
           </h2>
-          <p className="text-sm md:text-base text-gray-600">
+          <p className="text-texto-claro text-lg">
             Consulta el historial de vendedoras de forma rápida y segura
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-2">
+        {/* Tarjeta de búsqueda */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-renacer-100 rounded-full mb-4">
+              <span className="text-3xl">🔍</span>
+            </div>
+            <h3 className="text-xl font-semibold text-texto">
+              Consulta de Vendedoras
+            </h3>
+            <p className="text-texto-claro text-sm mt-1">
+              Ingrese el número de cédula para verificar el historial
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
-              placeholder="Ingrese cédula o nombre"
+              placeholder="Número de cédula"
               value={cedula}
               onChange={(e) => setCedula(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && buscar()}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+              className="flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500 focus:border-transparent text-center text-lg"
             />
             <button
               onClick={buscar}
               disabled={loading}
-              className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition disabled:opacity-50 w-full sm:w-auto"
+              className="bg-renacer-600 text-white px-8 py-3 rounded-xl hover:bg-renacer-700 transition disabled:opacity-50 font-semibold text-lg"
             >
-              {loading ? 'Buscando...' : 'Buscar'}
+              {loading ? 'Buscando...' : 'Consultar'}
             </button>
           </div>
         </div>
 
+        {/* Mensaje de error */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
+          <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <p>{error}</p>
+            </div>
           </div>
         )}
 
+        {/* Resultados */}
         {resultado && (
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-4">
-              Resultado de la consulta
-            </h3>
+          <div className="mt-6 bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <span className="text-3xl">📋</span>
+              <h3 className="text-xl font-semibold text-texto">
+                Resultado de la consulta
+              </h3>
+            </div>
             
-            <div className="space-y-3 text-sm md:text-base">
-              <p><span className="font-semibold">Nombre completo:</span> {resultado.nombre}</p>
-              <p><span className="font-semibold">Cédula:</span> {resultado.cedula}</p>
-              
-              <div className={`p-3 rounded-lg ${getColorReputacion(resultado.reputacion)}`}>
-                <span className="font-semibold">Reputación:</span> {getTextoReputacion(resultado.reputacion)}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
+                <span className="font-semibold text-texto-claro">Nombre completo:</span>
+                <span className="text-texto">{resultado.nombre}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
+                <span className="font-semibold text-texto-claro">Cédula:</span>
+                <span className="text-texto">{resultado.cedula}</span>
               </div>
               
-              <p><span className="font-semibold">Gerente actual:</span> {resultado.gerenteActual || 'Sin asignar'}</p>
+              <div className={`p-4 rounded-xl border ${getColorReputacion(resultado.reputacion)}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="font-semibold">Reputación:</span>
+                  <span>{getTextoReputacion(resultado.reputacion)}</span>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
+                <span className="font-semibold text-texto-claro">Gerente actual:</span>
+                <span className="text-texto">{resultado.gerenteActual || 'Sin asignar'}</span>
+              </div>
               
               {resultado.historial && resultado.historial.length > 0 && (
                 <details className="mt-4">
-                  <summary className="cursor-pointer text-gray-600 font-semibold">
-                    📜 Historial de gerentes anteriores ({resultado.historial.length})
+                  <summary className="cursor-pointer text-renacer-600 font-semibold">
+                    📜 Ver historial de gerentes anteriores ({resultado.historial.length})
                   </summary>
-                  <ul className="mt-2 pl-4 space-y-1">
+                  <ul className="mt-3 pl-4 space-y-2">
                     {resultado.historial.map((h: any, idx: number) => (
-                      <li key={idx}>• {h.gerenteZona} ({new Date(h.fechaAsignacion).toLocaleDateString()})</li>
+                      <li key={idx} className="text-texto-claro text-sm">
+                        • {h.gerenteZona} ({new Date(h.fechaAsignacion).toLocaleDateString()})
+                      </li>
                     ))}
                   </ul>
                 </details>
@@ -123,8 +178,16 @@ function Home() {
         )}
       </main>
 
-      <footer className="text-center py-4 md:py-6 text-gray-500 text-xs md:text-sm">
-        © 2026 Renacer - Sistema interno
+      {/* Footer */}
+      <footer className="bg-white border-t mt-12 py-6">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-texto-claro text-sm">
+            Sistema de Consulta de Vendedoras - Renacer Check In
+          </p>
+          <p className="text-texto-claro text-xs mt-2 opacity-60">
+            © 2026 Renacer - Todos los derechos reservados
+          </p>
+        </div>
       </footer>
     </div>
   );
