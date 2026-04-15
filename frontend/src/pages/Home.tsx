@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 function Home() {
@@ -44,37 +45,39 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Renacer Check In</h1>
-        <a href="/login" className="text-blue-600 hover:text-blue-800">
+      <header className="bg-white shadow-md py-3 px-4 flex justify-between items-center">
+        <Link to="/" className="text-lg md:text-2xl font-bold text-gray-800 hover:text-blue-600 transition">
+          Renacer Check In
+        </Link>
+        <a href="/login" className="text-blue-600 text-sm md:text-base hover:text-blue-800">
           Iniciar Sesión
         </a>
       </header>
 
-      <main className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+      <main className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
+        <div className="text-center mb-6 md:mb-8">
+          <h2 className="text-xl md:text-3xl font-bold text-gray-800 mb-2">
             Sistema Check-In Renacer
           </h2>
-          <p className="text-gray-600">
+          <p className="text-sm md:text-base text-gray-600">
             Consulta el historial de vendedoras de forma rápida y segura
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex gap-2">
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               placeholder="Ingrese cédula o nombre"
               value={cedula}
               onChange={(e) => setCedula(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && buscar()}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
             />
             <button
               onClick={buscar}
               disabled={loading}
-              className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition disabled:opacity-50"
+              className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition disabled:opacity-50 w-full sm:w-auto"
             >
               {loading ? 'Buscando...' : 'Buscar'}
             </button>
@@ -88,12 +91,12 @@ function Home() {
         )}
 
         {resultado && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-4">
               Resultado de la consulta
             </h3>
             
-            <div className="space-y-3">
+            <div className="space-y-3 text-sm md:text-base">
               <p><span className="font-semibold">Nombre completo:</span> {resultado.nombre}</p>
               <p><span className="font-semibold">Cédula:</span> {resultado.cedula}</p>
               
@@ -120,7 +123,7 @@ function Home() {
         )}
       </main>
 
-      <footer className="text-center py-6 text-gray-500 text-sm">
+      <footer className="text-center py-4 md:py-6 text-gray-500 text-xs md:text-sm">
         © 2026 Renacer - Sistema interno
       </footer>
     </div>
