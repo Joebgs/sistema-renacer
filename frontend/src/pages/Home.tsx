@@ -51,15 +51,6 @@ function Home() {
     }
   };
 
-  const getStatusColor = (reputacion: string) => {
-    switch (reputacion) {
-      case 'POSITIVA': return { bg: '#e8f5e9', color: '#2e7d32', text: '✅ POSITIVA - Vendedora confiable' };
-      case 'OBSERVADA': return { bg: '#fff8e1', color: '#f57c00', text: '⚠️ OBSERVADA - Se recomienda verificar' };
-      case 'RESTRINGIDA': return { bg: '#ffebee', color: '#d32f2f', text: '🔴 RESTRINGIDA - Requiere validación administrativa' };
-      default: return { bg: '#e3f2fd', color: '#1565c0', text: '🔵 NUEVA - Sin historial previo' };
-    }
-  };
-
   const getStatusClass = (reputacion: string) => {
     switch (reputacion) {
       case 'POSITIVA': return 'bg-green-50 text-green-700 border-green-200';
@@ -69,7 +60,14 @@ function Home() {
     }
   };
 
-  const statusInfo = resultado ? getStatusColor(resultado.reputacion) : null;
+  const getStatusText = (reputacion: string) => {
+    switch (reputacion) {
+      case 'POSITIVA': return '✅ POSITIVA - Vendedora confiable';
+      case 'OBSERVADA': return '⚠️ OBSERVADA - Se recomienda verificar';
+      case 'RESTRINGIDA': return '🔴 RESTRINGIDA - Requiere validación administrativa';
+      default: return '🔵 NUEVA - Sin historial previo';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 flex flex-col">
@@ -111,21 +109,21 @@ function Home() {
         <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
           <h3 className="text-lg font-semibold text-texto mb-3">Buscar por cédula</h3>
           
-          <div className="flex gap-3 mt-2">
+          <div className="flex flex-col sm:flex-row gap-3 mt-2">
             <input
               type="text"
               placeholder="Ingrese número de cédula"
               value={cedula}
               onChange={handleCedulaChange}
               onKeyPress={(e) => e.key === 'Enter' && buscar()}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
               inputMode="numeric"
               maxLength={9}
             />
             <button
               onClick={buscar}
               disabled={loading}
-              className="bg-gradient-to-r from-renacer-600 to-renacer-800 text-white px-6 py-3 rounded-xl hover:opacity-90 transition disabled:opacity-50 font-medium"
+              className="w-full sm:w-auto bg-gradient-to-r from-renacer-600 to-renacer-800 text-white px-6 py-3 rounded-xl hover:opacity-90 transition disabled:opacity-50 font-medium whitespace-nowrap"
             >
               {loading ? '...' : 'Consultar'}
             </button>
@@ -151,7 +149,7 @@ function Home() {
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
             {/* Estado */}
             <div className={`p-3 rounded-xl mb-5 text-center font-semibold ${getStatusClass(resultado.reputacion)}`}>
-              {statusInfo?.text}
+              {getStatusText(resultado.reputacion)}
             </div>
 
             {/* Perfil */}
@@ -200,7 +198,7 @@ function Home() {
               )}
               <div className="relative">
                 <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-gray-300 rounded-full"></div>
-                <p className="text-texto-claro text-sm">Ingreso al sistema: {new Date(resultado.createdAt).toLocaleDateString()}</p>
+                <p className="text-texto-claro text-sm">Ingreso al sistema: {resultado.createdAt ? new Date(resultado.createdAt).toLocaleDateString() : 'No disponible'}</p>
               </div>
             </div>
           </div>
