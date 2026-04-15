@@ -9,7 +9,6 @@ function Home() {
   const [error, setError] = useState('');
   const [errorValidacion, setErrorValidacion] = useState('');
 
-  // Validar cédula venezolana (6-9 dígitos, solo números)
   const validarCedula = (value: string): boolean => {
     if (!value) return false;
     const numeros = /^\d+$/.test(value);
@@ -18,11 +17,9 @@ function Home() {
   };
 
   const buscar = async () => {
-    // Limpiar errores previos
     setError('');
     setErrorValidacion('');
     
-    // Validar cédula
     if (!cedula.trim()) {
       setErrorValidacion('Por favor ingrese un número de cédula');
       return;
@@ -40,6 +37,7 @@ function Home() {
       setResultado(response.data);
     } catch (err: any) {
       setError(err.response?.data?.mensaje || 'Vendedora no encontrada');
+      setResultado(null);
     } finally {
       setLoading(false);
     }
@@ -47,193 +45,173 @@ function Home() {
 
   const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Solo permitir números
     if (value === '' || /^[0-9]+$/.test(value)) {
       setCedula(value);
       setErrorValidacion('');
     }
   };
 
-  const getColorReputacion = (reputacion: string) => {
+  const getStatusColor = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return 'text-green-600 bg-green-50 border-green-200';
-      case 'OBSERVADA': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'RESTRINGIDA': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'POSITIVA': return { bg: '#e8f5e9', color: '#2e7d32', text: '✅ POSITIVA - Vendedora confiable' };
+      case 'OBSERVADA': return { bg: '#fff8e1', color: '#f57c00', text: '⚠️ OBSERVADA - Se recomienda verificar' };
+      case 'RESTRINGIDA': return { bg: '#ffebee', color: '#d32f2f', text: '🔴 RESTRINGIDA - Requiere validación administrativa' };
+      default: return { bg: '#e3f2fd', color: '#1565c0', text: '🔵 NUEVA - Sin historial previo' };
     }
   };
 
-  const getTextoReputacion = (reputacion: string) => {
+  const getStatusClass = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return '✅ Sin novedad - Vendedora confiable';
-      case 'OBSERVADA': return '⚠️ En observación - Se recomienda verificar';
-      case 'RESTRINGIDA': return '🔴 Restringida - Consultar con administración';
-      default: return '🔵 Sin historial previo';
+      case 'POSITIVA': return 'bg-green-50 text-green-700 border-green-200';
+      case 'OBSERVADA': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'RESTRINGIDA': return 'bg-red-50 text-red-700 border-red-200';
+      default: return 'bg-blue-50 text-blue-700 border-blue-200';
     }
   };
+
+  const statusInfo = resultado ? getStatusColor(resultado.reputacion) : null;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm py-4 px-6 border-b">
-        <div className="container mx-auto max-w-4xl">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <img 
-                src="/logo.png" 
-                alt="Renacer" 
-                className="h-16 w-auto"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <h1 className="text-xl md:text-2xl font-bold text-renacer-600">
-                Renacer Check In
-              </h1>
-            </div>
-            <Link 
-              to="/login" 
-              className="text-renacer-600 hover:text-renacer-700 text-sm md:text-base font-medium"
-            >
-              Iniciar Sesión
-            </Link>
-          </div>
+      <header className="flex justify-between items-center py-5 px-6 md:px-10">
+        <div className="flex items-center gap-3">
+          <img 
+            src="/logo.png" 
+            alt="Renacer" 
+            className="h-10 w-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <span className="font-bold text-xl text-renacer-600">Renacer</span>
         </div>
+        <Link 
+          to="/login" 
+          className="border border-gray-300 px-4 py-2 rounded-xl bg-white text-gray-600 hover:border-renacer-500 hover:text-renacer-600 transition"
+        >
+          Iniciar Sesión
+        </Link>
       </header>
 
-      {/* Contenido principal */}
-      <main className="flex-1 container mx-auto px-4 py-12 max-w-2xl">
-        {/* Tarjeta de bienvenida */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-texto mb-4">
-            Sistema de Consulta
-          </h2>
-          <p className="text-texto-claro text-lg">
-            Consulta el historial de vendedoras de forma rápida y segura
-          </p>
-        </div>
+      {/* Hero */}
+      <section className="text-center mt-8 mb-10 px-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-texto mb-3">
+          Sistema de Verificación de Vendedoras
+        </h1>
+        <p className="text-texto-claro text-base md:text-lg">
+          Consulta el estado e historial de una vendedora de forma rápida y segura
+        </p>
+      </section>
 
+      {/* Contenedor principal */}
+      <div className="flex flex-col lg:flex-row justify-center items-start gap-8 px-6 pb-12 max-w-6xl mx-auto">
+        
         {/* Tarjeta de búsqueda */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
-          <div className="text-center mb-6">
-            {/* Logo dentro del círculo - reemplaza la lupa */}
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-renacer-100 rounded-full mb-4 p-2">
-              <img 
-                src="/logo.png" 
-                alt="Renacer" 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                  // Si no hay logo, mostrar un ícono por defecto
-                  const parent = (e.target as HTMLImageElement).parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<span class="text-3xl">🔍</span>';
-                  }
-                }}
-              />
-            </div>
-            <h3 className="text-xl font-semibold text-texto">
-              Consulta de Vendedoras
-            </h3>
-            <p className="text-texto-claro text-sm mt-1">
-              Ingrese el número de cédula (6 a 9 dígitos)
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
+          <h3 className="text-lg font-semibold text-texto mb-3">Buscar por cédula</h3>
+          
+          <div className="flex gap-3 mt-2">
             <input
               type="text"
-              placeholder="Ej: 12345678"
+              placeholder="Ingrese número de cédula"
               value={cedula}
               onChange={handleCedulaChange}
               onKeyPress={(e) => e.key === 'Enter' && buscar()}
-              className="flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500 focus:border-transparent text-center text-lg"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
               inputMode="numeric"
               maxLength={9}
             />
             <button
               onClick={buscar}
               disabled={loading}
-              className="bg-renacer-600 text-white px-8 py-3 rounded-xl hover:bg-renacer-700 transition disabled:opacity-50 font-semibold text-lg"
+              className="bg-gradient-to-r from-renacer-600 to-renacer-800 text-white px-6 py-3 rounded-xl hover:opacity-90 transition disabled:opacity-50 font-medium"
             >
-              {loading ? 'Buscando...' : 'Consultar'}
+              {loading ? '...' : 'Consultar'}
             </button>
           </div>
-
-          {/* Mensaje de validación */}
+          
+          <small className="text-texto-claro text-xs mt-2 block">Ejemplo: 12345678</small>
+          
           {errorValidacion && (
             <div className="mt-3 text-amber-600 text-sm text-center">
               ⚠️ {errorValidacion}
             </div>
           )}
+          
+          {error && !resultado && (
+            <div className="mt-3 text-red-600 text-sm text-center">
+              {error}
+            </div>
+          )}
         </div>
 
-        {/* Mensaje de error de API */}
-        {error && (
-          <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
-              <p>{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Resultados */}
+        {/* Tarjeta de resultado */}
         {resultado && (
-          <div className="mt-6 bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-              <span className="text-3xl">📋</span>
-              <h3 className="text-xl font-semibold text-texto">
-                Resultado de la consulta
-              </h3>
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
+            {/* Estado */}
+            <div className={`p-3 rounded-xl mb-5 text-center font-semibold ${getStatusClass(resultado.reputacion)}`}>
+              {statusInfo?.text}
             </div>
-            
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
-                <span className="font-semibold text-texto-claro">Nombre completo:</span>
-                <span className="text-texto">{resultado.nombre}</span>
+
+            {/* Perfil */}
+            <div className="text-center mb-4">
+              <div className="w-20 h-20 bg-renacer-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-3xl">👤</span>
               </div>
-              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
-                <span className="font-semibold text-texto-claro">Cédula:</span>
-                <span className="text-texto">{resultado.cedula}</span>
+              <h3 className="text-xl font-bold text-texto">{resultado.nombre}</h3>
+            </div>
+
+            {/* Datos */}
+            <div className="space-y-2 text-sm mb-5">
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-texto-claro">Cédula:</span>
+                <span className="text-texto font-medium">{resultado.cedula}</span>
               </div>
-              
-              <div className={`p-4 rounded-xl border ${getColorReputacion(resultado.reputacion)}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="font-semibold">Reputación:</span>
-                  <span>{getTextoReputacion(resultado.reputacion)}</span>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-texto-claro">Estado:</span>
+                <span className="text-texto font-medium">{resultado.reputacion}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-texto-claro">Gerente:</span>
+                <span className="text-texto font-medium">{resultado.gerenteActual || 'Sin asignar'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-texto-claro">Zona:</span>
+                <span className="text-texto font-medium">{resultado.gerenteZona || 'Sin asignar'}</span>
+              </div>
+            </div>
+
+            {/* Historial */}
+            <h4 className="font-semibold text-texto mb-3">Historial</h4>
+            <div className="border-l-2 border-renacer-300 pl-4 space-y-2">
+              {resultado.historial && resultado.historial.length > 0 ? (
+                resultado.historial.map((h: any, idx: number) => (
+                  <div key={idx} className="relative">
+                    <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-renacer-500 rounded-full"></div>
+                    <p className="text-texto-claro text-sm">{h.descripcion || `${h.gerenteZona} (${new Date(h.fechaAsignacion).toLocaleDateString()})`}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="relative">
+                  <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-gray-300 rounded-full"></div>
+                  <p className="text-texto-claro text-sm">Sin historial previo</p>
                 </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b">
-                <span className="font-semibold text-texto-claro">Gerente actual:</span>
-                <span className="text-texto">{resultado.gerenteActual || 'Sin asignar'}</span>
-              </div>
-              
-              {resultado.historial && resultado.historial.length > 0 && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-renacer-600 font-semibold">
-                    📜 Ver historial de gerentes anteriores ({resultado.historial.length})
-                  </summary>
-                  <ul className="mt-3 pl-4 space-y-2">
-                    {resultado.historial.map((h: any, idx: number) => (
-                      <li key={idx} className="text-texto-claro text-sm">
-                        • {h.gerenteZona} ({new Date(h.fechaAsignacion).toLocaleDateString()})
-                      </li>
-                    ))}
-                  </ul>
-                </details>
               )}
+              <div className="relative">
+                <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-gray-300 rounded-full"></div>
+                <p className="text-texto-claro text-sm">Ingreso al sistema: {new Date(resultado.createdAt).toLocaleDateString()}</p>
+              </div>
             </div>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Footer */}
-      <footer className="bg-white border-t mt-12 py-6">
+      <footer className="bg-white border-t mt-auto py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-texto-claro text-sm">
-            Sistema de Consulta de Vendedoras - Renacer Check In
+            Sistema de Verificación de Vendedoras - Renacer Check In
           </p>
           <p className="text-texto-claro text-xs mt-2 opacity-60">
             © 2026 Renacer - Todos los derechos reservados
