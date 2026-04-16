@@ -26,8 +26,9 @@ function AdminDashboard() {
       try {
         const [vendedorasRes, gerentesRes] = await Promise.all([
           api.get('/vendedora'),
-          api.get('/auth/usuarios?rol=GERENTE_ZONA'),
+          api.get('/auth/usuarios?rol=GERENTE_ZONA'), // ← Ahora filtra en el backend
         ]);
+        
         setVendedoras(vendedorasRes.data);
         setFilteredVendedoras(vendedorasRes.data);
         setStats({

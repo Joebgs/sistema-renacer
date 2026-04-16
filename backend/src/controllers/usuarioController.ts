@@ -3,13 +3,25 @@ import pool from '../db';
 
 export async function listarUsuariosController(req: Request, res: Response) {
   try {
-    const result = await pool.query(`
+    const { rol } = req.query;
+    
+    let query = `
       SELECT u.id, u.email, u.nombre, u.rol, u.activo, u."createdAt",
              g.nombre as "gerenteZona", g.id as "gerenteZonaId"
       FROM "Usuario" u
       LEFT JOIN "GerenteZona" g ON u."gerenteZonaId" = g.id
-      ORDER BY u.id DESC
-    `);
+    `;
+    
+    const params: any[] = [];
+    
+    if (rol) {
+      query += ` WHERE u.rol = $1`;
+      params.push(rol);
+    }
+    
+    query += ` ORDER BY u.id DESC`;
+    
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error: any) {
     console.error('Error al listar usuarios:', error);
