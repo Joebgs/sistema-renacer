@@ -9,6 +9,7 @@ interface Usuario {
   rol: string;
   gerenteZonaId?: number;
   gerenteZona?: string;
+  region?: string;
   activo: boolean;
   createdAt: string;
 }
@@ -24,14 +25,12 @@ function AdminUsuarios() {
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showZonaModal, setShowZonaModal] = useState(false);
-  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     nombre: '',
     password: '',
     rol: 'GERENTE_ZONA',
-    gerenteZonaId: '',
+    region: '',
   });
 
   const fetchUsuarios = async () => {
@@ -62,29 +61,28 @@ function AdminUsuarios() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/auth/registrar', {
-        email: formData.email,
-        nombre: formData.nombre,
-        password: formData.password,
-        rol: formData.rol,
-        gerenteZonaId: formData.gerenteZonaId ? parseInt(formData.gerenteZonaId) : undefined,
-      });
+      if (formData.rol === 'GERENTE_ZONA') {
+        // Usar el endpoint específico para gerentes con región
+        await api.post('/auth/registrar-gerente', {
+          email: formData.email,
+          nombre: formData.nombre,
+          password: formData.password,
+          region: formData.region,
+        });
+      } else {
+        await api.post('/auth/registrar', {
+          email: formData.email,
+          nombre: formData.nombre,
+          password: formData.password,
+          rol: formData.rol,
+        });
+      }
       setShowModal(false);
-      setFormData({ email: '', nombre: '', password: '', rol: 'GERENTE_ZONA', gerenteZonaId: '' });
+      setFormData({ email: '', nombre: '', password: '', rol: 'GERENTE_ZONA', region: '' });
       fetchUsuarios();
       alert('✅ Usuario creado exitosamente');
     } catch (error: any) {
       alert('❌ Error al crear usuario: ' + (error.response?.data?.error || 'Error desconocido'));
-    }
-  };
-
-  const handleAsignarZona = async (usuarioId: number, zonaId: number) => {
-    try {
-      await api.put(`/auth/usuarios/${usuarioId}/asignar-zona`, { gerenteZonaId: zonaId });
-      fetchUsuarios();
-      alert('✅ Zona asignada correctamente');
-    } catch (error) {
-      alert('❌ Error al asignar zona');
     }
   };
 
@@ -125,71 +123,68 @@ function AdminUsuarios() {
       <div className="mb-4">
         <button
           onClick={() => setShowModal(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          className="bg-renacer-600 text-white px-4 py-2 rounded-lg hover:bg-renacer-700 transition"
         >
           + Crear Nuevo Usuario
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zona</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {usuarios.map((usuario) => (
-              <tr key={usuario.id}>
-                <td className="px-6 py-4 font-medium">{usuario.nombre}</td>
-                <td className="px-6 py-4">{usuario.email}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded text-xs ${getRolColor(usuario.rol)}`}>
-                    {getRolTexto(usuario.rol)}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {usuario.rol === 'GERENTE_ZONA' ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{usuario.gerenteZona || 'Sin asignar'}</span>
-                      <button
-                        onClick={() => {
-                          setSelectedUsuario(usuario);
-                          setShowZonaModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-xs"
-                      >
-                        Asignar
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-sm">-</span>
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => handleDelete(usuario.id)}
-                    className="text-red-600 hover:text-red-800"
-                    disabled={usuario.rol === 'ADMIN'}
-                  >
-                    🗑️ Eliminar
-                  </button>
-                </td>
+      <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Región</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {usuarios.map((usuario) => (
+                <tr key={usuario.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 font-medium text-gray-800">{usuario.nombre}</td>
+                  <td className="px-6 py-4 text-gray-600">{usuario.email}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded text-xs ${getRolColor(usuario.rol)}`}>
+                      {getRolTexto(usuario.rol)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {usuario.rol === 'GERENTE_ZONA' ? (usuario.region || 'Sin asignar') : '-'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleDelete(usuario.id)}
+                      className="text-red-600 hover:text-red-800"
+                      disabled={usuario.rol === 'ADMIN'}
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {usuarios.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    No hay usuarios registrados
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal para crear usuario */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Crear Nuevo Usuario</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-texto">Crear Nuevo Usuario</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label className="block text-sm font-medium mb-1">Nombre</label>
@@ -234,16 +229,16 @@ function AdminUsuarios() {
               </div>
               {formData.rol === 'GERENTE_ZONA' && (
                 <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">Zona (ID)</label>
+                  <label className="block text-sm font-medium mb-1">Región</label>
                   <select
-                    value={formData.gerenteZonaId}
-                    onChange={(e) => setFormData({ ...formData, gerenteZonaId: e.target.value })}
+                    value={formData.region}
+                    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
+                    required
                   >
-                    <option value="">Sin zona</option>
-                    {zonas.map((zona) => (
-                      <option key={zona.id} value={zona.id}>{zona.nombre} - {zona.region}</option>
-                    ))}
+                    <option value="">Seleccionar región...</option>
+                    <option value="Portuguesa">Portuguesa</option>
+                    <option value="Cojedes">Cojedes</option>
                   </select>
                 </div>
               )}
@@ -251,37 +246,11 @@ function AdminUsuarios() {
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+                <button type="submit" className="px-4 py-2 bg-renacer-600 text-white rounded-lg hover:bg-renacer-700 transition">
                   Crear
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para asignar zona */}
-      {showZonaModal && selectedUsuario && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Asignar Zona</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Usuario: <strong>{selectedUsuario.nombre}</strong>
-            </p>
-            <select
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-              onChange={(e) => handleAsignarZona(selectedUsuario.id, parseInt(e.target.value))}
-            >
-              <option value="">Seleccionar zona...</option>
-              {zonas.map((zona) => (
-                <option key={zona.id} value={zona.id}>{zona.nombre} - {zona.region}</option>
-              ))}
-            </select>
-            <div className="flex justify-end">
-              <button onClick={() => setShowZonaModal(false)} className="px-4 py-2 bg-gray-300 rounded-lg">
-                Cerrar
-              </button>
-            </div>
           </div>
         </div>
       )}
