@@ -14,22 +14,23 @@ interface Usuario {
   createdAt: string;
 }
 
-interface Zona {
-  id: number;
-  nombre: string;
-  region: string;
-}
-
 function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [zonas, setZonas] = useState<Zona[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUsuario, setEditUsuario] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     nombre: '',
     password: '',
     rol: 'GERENTE_ZONA',
+    region: '',
+  });
+  const [editFormData, setEditFormData] = useState({
+    email: '',
+    nombre: '',
+    rol: '',
     region: '',
   });
 
@@ -44,25 +45,14 @@ function AdminUsuarios() {
     }
   };
 
-  const fetchZonas = async () => {
-    try {
-      const response = await api.get('/zonas');
-      setZonas(response.data);
-    } catch (error) {
-      console.error('Error al cargar zonas:', error);
-    }
-  };
-
   useEffect(() => {
     fetchUsuarios();
-    fetchZonas();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (formData.rol === 'GERENTE_ZONA') {
-        // Usar el endpoint específico para gerentes con región
         await api.post('/auth/registrar-gerente', {
           email: formData.email,
           nombre: formData.nombre,
@@ -83,6 +73,34 @@ function AdminUsuarios() {
       alert('✅ Usuario creado exitosamente');
     } catch (error: any) {
       alert('❌ Error al crear usuario: ' + (error.response?.data?.error || 'Error desconocido'));
+    }
+  };
+
+  const handleEdit = (usuario: Usuario) => {
+    setEditUsuario(usuario);
+    setEditFormData({
+      email: usuario.email,
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+      region: usuario.region || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.put(`/auth/usuarios/${editUsuario?.id}`, {
+        email: editFormData.email,
+        nombre: editFormData.nombre,
+        rol: editFormData.rol,
+        region: editFormData.region,
+      });
+      setShowEditModal(false);
+      fetchUsuarios();
+      alert('✅ Usuario actualizado correctamente');
+    } catch (error: any) {
+      alert('❌ Error al actualizar usuario: ' + (error.response?.data?.error || 'Error desconocido'));
     }
   };
 
@@ -155,6 +173,13 @@ function AdminUsuarios() {
                     {usuario.rol === 'GERENTE_ZONA' ? (usuario.region || 'Sin asignar') : '-'}
                   </td>
                   <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleEdit(usuario)}
+                      className="text-blue-600 hover:text-blue-800 mr-3"
+                      disabled={usuario.rol === 'ADMIN'}
+                    >
+                      ✏️ Editar
+                    </button>
                     <button
                       onClick={() => handleDelete(usuario.id)}
                       className="text-red-600 hover:text-red-800"
@@ -248,6 +273,73 @@ function AdminUsuarios() {
                 </button>
                 <button type="submit" className="px-4 py-2 bg-renacer-600 text-white rounded-lg hover:bg-renacer-700 transition">
                   Crear
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar usuario */}
+      {showEditModal && editUsuario && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-texto">Editar Usuario</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+            <form onSubmit={handleSaveEdit}>
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={editFormData.nombre}
+                  onChange={(e) => setEditFormData({ ...editFormData, nombre: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">Rol</label>
+                <select
+                  value={editFormData.rol}
+                  onChange={(e) => setEditFormData({ ...editFormData, rol: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  <option value="GERENTE_ZONA">Gerente de Zona</option>
+                  <option value="AUXILIAR">Auxiliar</option>
+                </select>
+              </div>
+              {editFormData.rol === 'GERENTE_ZONA' && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Región</label>
+                  <select
+                    value={editFormData.region}
+                    onChange={(e) => setEditFormData({ ...editFormData, region: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="">Seleccionar región...</option>
+                    <option value="Portuguesa">Portuguesa</option>
+                    <option value="Cojedes">Cojedes</option>
+                  </select>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 border rounded-lg">
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-2 bg-renacer-600 text-white rounded-lg hover:bg-renacer-700 transition">
+                  Guardar Cambios
                 </button>
               </div>
             </form>
