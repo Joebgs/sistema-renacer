@@ -53,16 +53,16 @@ function Home() {
 
   const getStatusClass = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return 'bg-green-50 text-green-700 border-green-200';
-      case 'OBSERVADA': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'RESTRINGIDA': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'POSITIVA': return 'bg-green-100 text-green-700 border-green-200';
+      case 'OBSERVADA': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'RESTRINGIDA': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
     }
   };
 
   const getStatusText = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return '✅ POSITIVA - Vendedora confiable';
+      case 'POSITIVA': return '✅ POSITIVA - Sin novedad';
       case 'OBSERVADA': return '⚠️ OBSERVADA - Se recomienda verificar';
       case 'RESTRINGIDA': return '🔴 RESTRINGIDA - Requiere validación administrativa';
       default: return '🔵 NUEVA - Sin historial previo';
@@ -71,7 +71,6 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 flex flex-col">
-      {/* Header */}
       <header className="flex justify-between items-center py-5 px-6 md:px-10">
         <div className="flex items-center gap-3">
           <img 
@@ -92,7 +91,6 @@ function Home() {
         </Link>
       </header>
 
-      {/* Hero */}
       <section className="text-center mt-8 mb-10 px-4">
         <h1 className="text-3xl md:text-4xl font-bold text-texto mb-3">
           Sistema de Verificación de Vendedoras
@@ -102,10 +100,8 @@ function Home() {
         </p>
       </section>
 
-      {/* Contenedor principal */}
       <div className="flex flex-col lg:flex-row justify-center items-start gap-8 px-6 pb-12 max-w-6xl mx-auto">
         
-        {/* Tarjeta de búsqueda */}
         <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
           <h3 className="text-lg font-semibold text-texto mb-3">Buscar por cédula</h3>
           
@@ -144,15 +140,12 @@ function Home() {
           )}
         </div>
 
-        {/* Tarjeta de resultado */}
         {resultado && (
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
-            {/* Estado */}
             <div className={`p-3 rounded-xl mb-5 text-center font-semibold ${getStatusClass(resultado.reputacion)}`}>
               {getStatusText(resultado.reputacion)}
             </div>
 
-            {/* Perfil */}
             <div className="text-center mb-4">
               <div className="w-20 h-20 bg-renacer-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-3xl">👤</span>
@@ -160,52 +153,44 @@ function Home() {
               <h3 className="text-xl font-bold text-texto">{resultado.nombre}</h3>
             </div>
 
-            {/* Datos */}
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between py-1 border-b">
                 <span className="text-texto-claro">Cédula:</span>
                 <span className="text-texto font-medium">{resultado.cedula}</span>
               </div>
               <div className="flex justify-between py-1 border-b">
-                <span className="text-texto-claro">Estado:</span>
-                <span className="text-texto font-medium">{resultado.reputacion}</span>
+                <span className="text-texto-claro">Teléfono:</span>
+                <span className="text-texto font-medium">{resultado.telefono || 'No registrado'}</span>
               </div>
               <div className="flex justify-between py-1 border-b">
-                <span className="text-texto-claro">Gerente:</span>
-                <span className="text-texto font-medium">{resultado.gerenteActual || 'Sin asignar'}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b">
-                <span className="text-texto-claro">Zona:</span>
-                <span className="text-texto font-medium">{resultado.gerenteZona || 'Sin asignar'}</span>
+                <span className="text-texto-claro">Dirección:</span>
+                <span className="text-texto font-medium">{resultado.direccion || 'No registrada'}</span>
               </div>
             </div>
 
-            {/* Historial */}
-            <h4 className="font-semibold text-texto mb-3">Historial</h4>
-            <div className="border-l-2 border-renacer-300 pl-4 space-y-2">
-              {resultado.historial && resultado.historial.length > 0 ? (
-                resultado.historial.map((h: any, idx: number) => (
-                  <div key={idx} className="relative">
-                    <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-renacer-500 rounded-full"></div>
-                    <p className="text-texto-claro text-sm">{h.descripcion || `${h.gerenteZona} (${new Date(h.fechaAsignacion).toLocaleDateString()})`}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="relative">
-                  <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-gray-300 rounded-full"></div>
-                  <p className="text-texto-claro text-sm">Sin historial previo</p>
-                </div>
-              )}
-              <div className="relative">
-                <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-gray-300 rounded-full"></div>
-                <p className="text-texto-claro text-sm">Ingreso al sistema: {resultado.createdAt ? new Date(resultado.createdAt).toLocaleDateString() : 'No disponible'}</p>
-              </div>
-            </div>
+            {resultado.historial && resultado.historial.length > 0 && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-renacer-600 font-semibold">
+                  📜 Historial de reportes ({resultado.historial.length})
+                </summary>
+                <ul className="mt-3 pl-4 space-y-2">
+                  {resultado.historial.map((h: any, idx: number) => (
+                    <li key={idx} className="text-texto-claro text-sm border-l-2 border-renacer-300 pl-3">
+                      • Reportado por: <strong>{h.gerenteZona}</strong> ({h.region}) - 
+                      <span className={`ml-1 ${h.reputacion === 'RESTRINGIDA' ? 'text-red-600' : h.reputacion === 'OBSERVADA' ? 'text-yellow-600' : 'text-green-600'}`}>
+                        {h.reputacion}
+                      </span>
+                      <br />
+                      <span className="text-xs">📅 {new Date(h.fechaReporte).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         )}
       </div>
 
-      {/* Footer */}
       <footer className="bg-white border-t mt-auto py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-texto-claro text-sm">

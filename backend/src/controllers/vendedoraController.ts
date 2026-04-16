@@ -6,9 +6,8 @@ export async function listarVendedorasController(req: Request, res: Response) {
   try {
     const usuario = (req as any).usuario;
     let query = `
-      SELECT v.*, g.nombre as "gerenteZona", u.nombre as "creadaPorNombre"
+      SELECT v.*, u.nombre as "creadaPorNombre"
       FROM "Vendedora" v
-      LEFT JOIN "GerenteZona" g ON v."gerenteZonaId" = g.id
       LEFT JOIN "Usuario" u ON v."creadaPorId" = u.id
     `;
     const params: any[] = [];
@@ -35,15 +34,28 @@ export async function buscarVendedoraController(req: Request, res: Response) {
   const cedulaStr = Array.isArray(cedula) ? cedula[0] : cedula;
 
   try {
-    const result = await pool.query(
-      `SELECT v.*, g.nombre as "gerenteZona" 
-       FROM "Vendedora" v
-       LEFT JOIN "GerenteZona" g ON v."gerenteZonaId" = g.id
-       WHERE v.cedula = $1`,
+    // Obtener datos de la vendedora
+    const vendedoraResult = await pool.query(
+      `SELECT v.* FROM "Vendedora" v WHERE v.cedula = $1`,
       [cedulaStr]
     );
     
-    const exitosa = result.rows.length > 0;
+    const exitosa = vendedoraResult.rows.length > 0;
+    const vendedora = exitosa ? vendedoraResult.rows[0] : null;
+
+    // Obtener historial de reportes
+    let historial = [];
+    if (exitosa && vendedora.id) {
+      const historialResult = await pool.query(
+        `SELECT h.*, g.nombre as "gerenteZona", g.region
+         FROM "HistorialVendedora" h
+         LEFT JOIN "GerenteZona" g ON h."gerenteZonaId" = g.id
+         WHERE h."vendedoraId" = $1
+         ORDER BY h."fechaReporte" DESC`,
+        [vendedora.id]
+      );
+      historial = historialResult.rows;
+    }
     
     await registrarConsultaAuditoria(
       cedulaStr, 
@@ -57,7 +69,15 @@ export async function buscarVendedoraController(req: Request, res: Response) {
       return res.status(404).json({ mensaje: 'Vendedora no encontrada' });
     }
     
-    res.json(result.rows[0]);
+    res.json({
+      ...vendedora,
+      historial: historial.map(h => ({
+        gerenteZona: h.gerenteZona,
+        region: h.region,
+        reputacion: h.reputacion,
+        fechaReporte: h.fechaReporte
+      }))
+    });
   } catch (error: any) {
     const cedulaStr = Array.isArray(cedula) ? cedula[0] : cedula;
     await registrarConsultaAuditoria(cedulaStr, usuario?.id || null, ip, req.headers['user-agent'] as string | undefined, false);
@@ -67,19 +87,40 @@ export async function buscarVendedoraController(req: Request, res: Response) {
 
 export async function crearVendedoraController(req: Request, res: Response) {
   try {
-    const { nombre, cedula, reputacion, gerenteZonaId } = req.body;
+    const { nombre, cedula, reputacion, telefono, direccion } = req.body;
     const usuario = (req as any).usuario;
-    
-    const result = await pool.query(
-      `INSERT INTO "Vendedora" (nombre, cedula, reputacion, "gerenteZonaId", "creadaPorId")
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [nombre, cedula, reputacion, gerenteZonaId || null, usuario.id]
+
+    // Verificar si la vendedora ya existe por cédula
+    let vendedoraResult = await pool.query(
+      `SELECT id FROM "Vendedora" WHERE cedula = $1`,
+      [cedula]
     );
     
-    res.status(201).json(result.rows[0]);
+    let vendedoraId;
+    
+    if (vendedoraResult.rows.length === 0) {
+      // Crear nueva vendedora
+      const insertResult = await pool.query(
+        `INSERT INTO "Vendedora" (nombre, cedula, telefono, direccion, "creadaPorId")
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [nombre, cedula, telefono || null, direccion || null, usuario.id]
+      );
+      vendedoraId = insertResult.rows[0].id;
+    } else {
+      vendedoraId = vendedoraResult.rows[0].id;
+    }
+
+    // Agregar al historial de reportes
+    await pool.query(
+      `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+       VALUES ($1, $2, $3)`,
+      [vendedoraId, usuario.gerenteZonaId, reputacion]
+    );
+
+    res.status(201).json({ mensaje: 'Vendedora reportada correctamente' });
   } catch (error: any) {
-    console.error('Error al crear vendedora:', error);
+    console.error('Error al reportar vendedora:', error);
     res.status(500).json({ error: error.message });
   }
 }
@@ -102,14 +143,13 @@ export async function actualizarVendedoraController(req: Request, res: Response)
     }
 
     if (usuario.rol === 'ADMIN' || usuario.rol === 'AUXILIAR') {
-      const result = await pool.query(
-        `UPDATE "Vendedora" 
-         SET reputacion = $1, "updatedAt" = NOW()
-         WHERE id = $2
-         RETURNING *`,
-        [reputacion, id]
+      // Agregar nuevo reporte al historial
+      await pool.query(
+        `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+         VALUES ($1, $2, $3)`,
+        [id, vendedora.gerenteZonaId, reputacion]
       );
-      return res.json(result.rows[0]);
+      return res.json({ mensaje: 'Reporte actualizado' });
     }
 
     if (vendedora.creadaPorId !== usuario.id) {
@@ -123,15 +163,14 @@ export async function actualizarVendedoraController(req: Request, res: Response)
       });
     }
 
-    const result = await pool.query(
-      `UPDATE "Vendedora" 
-       SET reputacion = $1, "updatedAt" = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [reputacion, id]
+    // Agregar nuevo reporte al historial
+    await pool.query(
+      `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+       VALUES ($1, $2, $3)`,
+      [id, usuario.gerenteZonaId, reputacion]
     );
-    
-    res.json(result.rows[0]);
+
+    res.json({ mensaje: 'Reporte actualizado' });
   } catch (error: any) {
     console.error('Error al actualizar vendedora:', error);
     res.status(500).json({ error: error.message });
