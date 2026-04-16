@@ -10,7 +10,10 @@ import {
 
 const router = Router();
 
+// Ruta pública (sin autenticación)
 router.get('/buscar/:cedula', buscarVendedoraController);
+
+// Rutas protegidas
 router.get('/', autenticar, listarVendedorasController);
 router.post('/', autenticar, permitirRoles('ADMIN', 'AUXILIAR', 'GERENTE_ZONA'), crearVendedoraController);
 router.put('/:id', autenticar, permitirRoles('ADMIN', 'AUXILIAR', 'GERENTE_ZONA'), actualizarVendedoraController);

@@ -4,13 +4,22 @@ import { registrarConsultaAuditoria } from '../middleware/security';
 
 export async function listarVendedorasController(req: Request, res: Response) {
   try {
-    const result = await pool.query(`
-      SELECT v.*, g.nombre as "gerenteZona" 
+    const usuario = (req as any).usuario;
+    let query = `
+      SELECT v.*, g.nombre as "gerenteZona", u.nombre as "creadaPorNombre"
       FROM "Vendedora" v
       LEFT JOIN "GerenteZona" g ON v."gerenteZonaId" = g.id
-      ORDER BY v.id DESC
-    `);
-    
+      LEFT JOIN "Usuario" u ON v."creadaPorId" = u.id
+    `;
+    const params: any[] = [];
+
+    if (usuario.rol === 'GERENTE_ZONA') {
+      query += ` WHERE v."creadaPorId" = $1`;
+      params.push(usuario.id);
+    }
+
+    query += ` ORDER BY v.id DESC`;
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error: any) {
     console.error('Error al listar vendedoras:', error);
@@ -23,7 +32,6 @@ export async function buscarVendedoraController(req: Request, res: Response) {
   const { cedula } = req.params;
   const usuario = (req as any).usuario;
   
-  // Asegurar que cedula sea string
   const cedulaStr = Array.isArray(cedula) ? cedula[0] : cedula;
 
   try {
@@ -37,7 +45,6 @@ export async function buscarVendedoraController(req: Request, res: Response) {
     
     const exitosa = result.rows.length > 0;
     
-    // Registrar auditoría
     await registrarConsultaAuditoria(
       cedulaStr, 
       usuario?.id || null, 
@@ -80,16 +87,48 @@ export async function crearVendedoraController(req: Request, res: Response) {
 export async function actualizarVendedoraController(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { reputacion, gerenteZonaId } = req.body;
+    const { reputacion } = req.body;
+    const usuario = (req as any).usuario;
+
+    const vendedoraResult = await pool.query(
+      `SELECT * FROM "Vendedora" WHERE id = $1`,
+      [id]
+    );
     
+    const vendedora = vendedoraResult.rows[0];
+    
+    if (!vendedora) {
+      return res.status(404).json({ error: 'Vendedora no encontrada' });
+    }
+
+    if (usuario.rol === 'ADMIN' || usuario.rol === 'AUXILIAR') {
+      const result = await pool.query(
+        `UPDATE "Vendedora" 
+         SET reputacion = $1, "updatedAt" = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [reputacion, id]
+      );
+      return res.json(result.rows[0]);
+    }
+
+    if (vendedora.creadaPorId !== usuario.id) {
+      return res.status(403).json({ error: 'Solo puedes editar vendedoras que registraste tú' });
+    }
+    
+    const minutosTranscurridos = (Date.now() - new Date(vendedora.createdAt).getTime()) / 60000;
+    if (minutosTranscurridos > 30) {
+      return res.status(403).json({ 
+        error: 'Pasaron más de 30 minutos. Solo el administrador puede editar esta vendedora.' 
+      });
+    }
+
     const result = await pool.query(
       `UPDATE "Vendedora" 
-       SET reputacion = COALESCE($1, reputacion),
-           "gerenteZonaId" = COALESCE($2, "gerenteZonaId"),
-           "updatedAt" = NOW()
-       WHERE id = $3
+       SET reputacion = $1, "updatedAt" = NOW()
+       WHERE id = $2
        RETURNING *`,
-      [reputacion, gerenteZonaId, id]
+      [reputacion, id]
     );
     
     res.json(result.rows[0]);
