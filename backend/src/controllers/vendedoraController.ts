@@ -6,18 +6,20 @@ export async function listarVendedorasController(req: Request, res: Response) {
   try {
     const usuario = (req as any).usuario;
     let query = `
-      SELECT v.*, u.nombre as "creadaPorNombre"
+      SELECT DISTINCT v.*, u.nombre as "creadaPorNombre"
       FROM "Vendedora" v
+      INNER JOIN "HistorialVendedora" h ON v.id = h."vendedoraId"
       LEFT JOIN "Usuario" u ON v."creadaPorId" = u.id
     `;
     const params: any[] = [];
 
     if (usuario.rol === 'GERENTE_ZONA') {
-      query += ` WHERE v."creadaPorId" = $1`;
-      params.push(usuario.id);
+      // El gerente ve las vendedoras que ha reportado (basado en historial)
+      query += ` WHERE h."gerenteZonaId" = $1`;
+      params.push(usuario.gerenteZonaId);
     }
 
-    query += ` ORDER BY v.id DESC`;
+    query += ` GROUP BY v.id, u.nombre ORDER BY v.id DESC`;
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error: any) {
