@@ -1,14 +1,3 @@
-/**
- * PÁGINA PRINCIPAL PÚBLICA (HOME)
- * 
- * Funcionalidades:
- * - Buscar vendedora por cédula (sin necesidad de login)
- * - Mostrar datos básicos (nombre, cédula, teléfono, dirección)
- * - Mostrar reputación actual
- * - Mostrar historial completo de reportes (qué gerentes la reportaron)
- * - Validación de cédula venezolana (6-9 dígitos)
- */
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -20,7 +9,6 @@ function Home() {
   const [error, setError] = useState('');
   const [errorValidacion, setErrorValidacion] = useState('');
 
-  // Validar cédula venezolana: solo números, entre 6 y 9 dígitos
   const validarCedula = (value: string): boolean => {
     if (!value) return false;
     const numeros = /^\d+$/.test(value);
@@ -55,7 +43,6 @@ function Home() {
     }
   };
 
-  // Solo permitir números en el campo de cédula
   const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '' || /^[0-9]+$/.test(value)) {
@@ -64,7 +51,15 @@ function Home() {
     }
   };
 
-  // Estilos según reputación
+  // Obtener la reputación del reporte más reciente
+  const getUltimaReputacion = () => {
+    if (!resultado?.historial || resultado.historial.length === 0) {
+      return 'NUEVA';
+    }
+    // El historial viene ordenado por fecha DESC (el más reciente primero)
+    return resultado.historial[0].reputacion;
+  };
+
   const getStatusClass = (reputacion: string) => {
     switch (reputacion) {
       case 'POSITIVA': return 'bg-green-100 text-green-700 border-green-200';
@@ -83,9 +78,10 @@ function Home() {
     }
   };
 
+  const ultimaReputacion = getUltimaReputacion();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 flex flex-col">
-      {/* Header con logo y botón de login */}
       <header className="flex justify-between items-center py-5 px-6 md:px-10">
         <div className="flex items-center gap-3">
           <img 
@@ -106,7 +102,6 @@ function Home() {
         </Link>
       </header>
 
-      {/* Sección de bienvenida */}
       <section className="text-center mt-8 mb-10 px-4">
         <h1 className="text-3xl md:text-4xl font-bold text-texto mb-3">
           Sistema de Verificación de Vendedoras
@@ -116,10 +111,8 @@ function Home() {
         </p>
       </section>
 
-      {/* Contenedor de búsqueda y resultados */}
       <div className="flex flex-col lg:flex-row justify-center items-start gap-8 px-6 pb-12 max-w-6xl mx-auto">
         
-        {/* Tarjeta de búsqueda */}
         <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
           <h3 className="text-lg font-semibold text-texto mb-3">Buscar por cédula</h3>
           
@@ -158,15 +151,13 @@ function Home() {
           )}
         </div>
 
-        {/* Tarjeta de resultados (solo si hay resultado) */}
         {resultado && (
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full lg:w-96">
-            {/* Estado de reputación */}
-            <div className={`p-3 rounded-xl mb-5 text-center font-semibold ${getStatusClass(resultado.reputacion)}`}>
-              {getStatusText(resultado.reputacion)}
+            {/* Estado basado en el último reporte */}
+            <div className={`p-3 rounded-xl mb-5 text-center font-semibold ${getStatusClass(ultimaReputacion)}`}>
+              {getStatusText(ultimaReputacion)}
             </div>
 
-            {/* Foto de perfil (placeholder) */}
             <div className="text-center mb-4">
               <div className="w-20 h-20 bg-renacer-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-3xl">👤</span>
@@ -174,7 +165,6 @@ function Home() {
               <h3 className="text-xl font-bold text-texto">{resultado.nombre}</h3>
             </div>
 
-            {/* Datos personales */}
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between py-1 border-b">
                 <span className="text-texto-claro">Cédula:</span>
@@ -190,7 +180,6 @@ function Home() {
               </div>
             </div>
 
-            {/* Historial de reportes (acordeón desplegable) */}
             {resultado.historial && resultado.historial.length > 0 && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-renacer-600 font-semibold">
@@ -199,10 +188,7 @@ function Home() {
                 <ul className="mt-3 pl-4 space-y-2">
                   {resultado.historial.map((h: any, idx: number) => (
                     <li key={idx} className="text-texto-claro text-sm border-l-2 border-renacer-300 pl-3">
-                      • Reportado por: <strong>{h.gerenteZona}</strong> ({h.region}) - 
-                      <span className={`ml-1 ${h.reputacion === 'RESTRINGIDA' ? 'text-red-600' : h.reputacion === 'OBSERVADA' ? 'text-yellow-600' : 'text-green-600'}`}>
-                        {h.reputacion}
-                      </span>
+                      • Reportado por: <strong>{h.gerenteZona || 'Desconocido'}</strong> ({h.region || 'Sin región'}) - {h.reputacion}
                       <br />
                       <span className="text-xs">📅 {new Date(h.fechaReporte).toLocaleDateString()}</span>
                     </li>
@@ -214,7 +200,6 @@ function Home() {
         )}
       </div>
 
-      {/* Footer */}
       <footer className="bg-white border-t mt-auto py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-texto-claro text-sm">
