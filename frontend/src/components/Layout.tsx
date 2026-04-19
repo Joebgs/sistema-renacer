@@ -1,3 +1,12 @@
+/**
+ * COMPONENTE LAYOUT PRINCIPAL
+ * 
+ * Estructura base para paneles protegidos (Admin, Auxiliar)
+ * - Barra lateral (sidebar) con menú según rol
+ * - Header con botón de cerrar sesión y enlace a inicio
+ * - Diseño responsive (sidebar colapsable en móvil)
+ */
+
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -12,12 +21,14 @@ function Layout({ children, title }: LayoutProps) {
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const rol = usuario.rol;
 
+  // Cerrar sesión: eliminar datos locales y redirigir al login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     navigate('/login');
   };
 
+  // Menú dinámico según el rol del usuario
   const menuItems = () => {
     if (rol === 'ADMIN') {
       return (
@@ -50,7 +61,7 @@ function Layout({ children, title }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Sidebar Desktop */}
+      {/* Sidebar para escritorio */}
       <div className="hidden md:block fixed left-0 top-0 h-full w-64 bg-renacer-600 shadow-lg">
         <div className="p-6 border-b border-renacer-500">
           <div className="flex justify-center">
@@ -66,11 +77,13 @@ function Layout({ children, title }: LayoutProps) {
           <p className="text-white text-center text-sm mt-2 opacity-80">Sistema interno</p>
         </div>
         
+        {/* Información del usuario logueado */}
         <div className="p-4 border-b border-renacer-500 bg-renacer-700">
           <p className="text-sm text-white">👤 {usuario.nombre || 'Usuario'}</p>
           <p className="text-xs text-white opacity-70">Rol: {rol}</p>
         </div>
 
+        {/* Navegación */}
         <nav className="mt-4 px-3 space-y-1">
           {menuItems()}
           <button onClick={handleLogout} className="w-full text-left block py-2 px-6 text-white hover:bg-renacer-700 rounded-lg transition mt-4">
@@ -79,7 +92,7 @@ function Layout({ children, title }: LayoutProps) {
         </nav>
       </div>
 
-      {/* Sidebar Móvil */}
+      {/* Sidebar móvil (menú hamburguesa) */}
       {menuAbierto && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden">
           <div className="bg-renacer-600 w-64 h-full p-4">
@@ -108,8 +121,9 @@ function Layout({ children, title }: LayoutProps) {
         </div>
       )}
 
-      {/* Header */}
+      {/* Contenido principal */}
       <div className="md:ml-64">
+        {/* Header superior */}
         <header className="bg-white shadow-sm px-4 md:px-6 py-3 md:py-4 flex justify-between items-center border-b">
           <div className="flex items-center gap-3">
             <button onClick={() => setMenuAbierto(true)} className="md:hidden text-2xl text-renacer-600">
@@ -135,6 +149,7 @@ function Layout({ children, title }: LayoutProps) {
           </button>
         </header>
 
+        {/* Contenido dinámico de la página */}
         <main className="p-4 md:p-6">
           {children}
         </main>

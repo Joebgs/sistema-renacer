@@ -1,50 +1,89 @@
+/**
+ * DASHBOARD DEL GERENTE DE ZONA
+ * 
+ * Funcionalidades:
+ * - Ver solo las vendedoras que él mismo ha reportado
+ * - Reportar nuevas vendedoras (solo con reputación OBSERVADA o RESTRINGIDA)
+ * - Editar reputación de sus vendedoras (ventana de 30 minutos)
+ * - NO puede eliminar vendedoras
+ * - Timer visual de tiempo restante para editar
+ */
+
 import { useEffect, useState } from 'react';
-import Layout from '../../components/Layout';
+import LayoutGerente from '../../components/LayoutGerente';
 import api from '../../services/api';
 
+// Interfaz que define la estructura de una vendedora
 interface Vendedora {
   id: number;
   nombre: string;
   cedula: string;
   reputacion: string;
   gerenteZona: string;
+  createdAt: string;
+  creadaPorNombre?: string;
+  telefono?: string;
+  direccion?: string;
 }
 
-function AdminDashboard() {
+function GerenteDashboard() {
+  // Estado para almacenar la lista de vendedoras
   const [vendedoras, setVendedoras] = useState<Vendedora[]>([]);
+  // Estado para el buscador en tiempo real
   const [busqueda, setBusqueda] = useState('');
   const [filteredVendedoras, setFilteredVendedoras] = useState<Vendedora[]>([]);
-  const [stats, setStats] = useState({
-    totalVendedoras: 0,
-    totalGerentes: 0,
-    consultasMes: 0,
-  });
   const [loading, setLoading] = useState(true);
+  // Estado para el modal de reporte
+  const [showModal, setShowModal] = useState(false);
+  // Datos del formulario de reporte (incluye teléfono y dirección)
+  const [formData, setFormData] = useState({
+    nombre: '',
+    cedula: '',
+    reputacion: 'OBSERVADA',
+    telefono: '',
+    direccion: '',
+  });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  // Timer para la ventana de 30 minutos de edición
+  const [tiempoRestante, setTiempoRestante] = useState<{ [key: number]: number }>({});
 
+  // Obtener vendedoras desde el backend
+  const fetchVendedoras = async () => {
+    try {
+      const response = await api.get('/vendedora');
+      setVendedoras(response.data);
+      setFilteredVendedoras(response.data);
+    } catch (error) {
+      console.error('Error al cargar vendedoras:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar vendedoras al montar el componente
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [vendedorasRes, gerentesRes] = await Promise.all([
-          api.get('/vendedora'),
-          api.get('/auth/usuarios?rol=GERENTE_ZONA'), // ← Ahora filtra en el backend
-        ]);
-        
-        setVendedoras(vendedorasRes.data);
-        setFilteredVendedoras(vendedorasRes.data);
-        setStats({
-          totalVendedoras: vendedorasRes.data.length,
-          totalGerentes: gerentesRes.data.length,
-          consultasMes: 1250,
-        });
-      } catch (error) {
-        console.error('Error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchVendedoras();
   }, []);
 
+  // Calcular tiempo restante para editar cada vendedora (30 minutos desde creación)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nuevosTiempos: { [key: number]: number } = {};
+      vendedoras.forEach(v => {
+        const creado = new Date(v.createdAt).getTime();
+        const ahora = Date.now();
+        const minutosPasados = (ahora - creado) / 60000;
+        if (minutosPasados < 30) {
+          nuevosTiempos[v.id] = Math.max(0, 30 - minutosPasados);
+        }
+      });
+      setTiempoRestante(nuevosTiempos);
+    }, 1000); // Actualizar cada segundo
+    return () => clearInterval(interval);
+  }, [vendedoras]);
+
+  // Filtrar vendedoras según la búsqueda (nombre o cédula)
   useEffect(() => {
     if (busqueda.trim() === '') {
       setFilteredVendedoras(vendedoras);
@@ -57,6 +96,58 @@ function AdminDashboard() {
     }
   }, [busqueda, vendedoras]);
 
+  // Enviar formulario de reporte de nueva vendedora
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    try {
+      await api.post('/vendedora', {
+        nombre: formData.nombre,
+        cedula: formData.cedula,
+        reputacion: formData.reputacion,
+        telefono: formData.telefono,
+        direccion: formData.direccion,
+        gerenteZonaId: null,
+      });
+      setShowModal(false);
+      // Resetear formulario
+      setFormData({ nombre: '', cedula: '', reputacion: 'OBSERVADA', telefono: '', direccion: '' });
+      fetchVendedoras(); // Recargar lista
+      setSuccess('✅ Vendedora reportada exitosamente');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(error.response?.data?.error || 'Error al reportar vendedora');
+    }
+  };
+
+  // Editar reputación de una vendedora existente
+  const handleEdit = async (id: number, nuevaReputacion: string) => {
+    try {
+      await api.put(`/vendedora/${id}`, { reputacion: nuevaReputacion });
+      fetchVendedoras();
+      setSuccess('✅ Reputación actualizada');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(error.response?.data?.error || 'Error al actualizar reputación');
+    }
+  };
+
+  // Verificar si el gerente aún puede editar una vendedora (dentro de 30 min)
+  const puedeEditar = (vendedora: Vendedora) => {
+    const tiempo = tiempoRestante[vendedora.id];
+    return tiempo !== undefined && tiempo > 0;
+  };
+
+  // Formatear tiempo restante (minutos:segundos)
+  const getTiempoTexto = (minutos: number) => {
+    if (minutos <= 0) return 'Tiempo expirado';
+    const mins = Math.floor(minutos);
+    const segs = Math.floor((minutos % 1) * 60);
+    return `${mins}:${segs.toString().padStart(2, '0')}`;
+  };
+
+  // Colores según reputación
   const getColorReputacion = (reputacion: string) => {
     switch (reputacion) {
       case 'POSITIVA': return 'bg-green-100 text-green-800';
@@ -66,26 +157,39 @@ function AdminDashboard() {
     }
   };
 
+  // Texto según reputación
   const getTextoReputacion = (reputacion: string) => {
     switch (reputacion) {
-      case 'POSITIVA': return 'Positiva';
-      case 'OBSERVADA': return 'Observada';
-      case 'RESTRINGIDA': return 'Restringida';
-      default: return 'Nueva';
+      case 'POSITIVA': return '✅ Positiva';
+      case 'OBSERVADA': return '⚠️ Observada';
+      case 'RESTRINGIDA': return '🔴 Restringida';
+      default: return '🔵 Nueva';
     }
   };
 
-  if (loading) return <Layout title="Dashboard"><div className="p-6">Cargando...</div></Layout>;
+  if (loading) return <LayoutGerente title="Mis Vendedoras"><div className="p-6">Cargando...</div></LayoutGerente>;
 
   return (
-    <Layout title="Panel de Administrador">
+    <LayoutGerente title="Mis Vendedoras">
+      {/* Mensajes de éxito o error */}
+      {success && (
+        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+          {error}
+        </div>
+      )}
+
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-gradient-to-br from-white to-purple-50 rounded-2xl shadow-md p-6 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm font-medium">Total Vendedoras</p>
-              <p className="text-3xl font-bold text-gray-800 mt-1">{stats.totalVendedoras}</p>
+              <p className="text-gray-500 text-sm font-medium">Mis Vendedoras</p>
+              <p className="text-3xl font-bold text-gray-800 mt-1">{filteredVendedoras.length}</p>
             </div>
             <div className="w-12 h-12 bg-renacer-100 rounded-full flex items-center justify-center">
               <span className="text-2xl">👩</span>
@@ -96,32 +200,20 @@ function AdminDashboard() {
         <div className="bg-gradient-to-br from-white to-purple-50 rounded-2xl shadow-md p-6 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm font-medium">Gerentes de Zona</p>
-              <p className="text-3xl font-bold text-gray-800 mt-1">{stats.totalGerentes}</p>
+              <p className="text-gray-500 text-sm font-medium">Tiempo para editar</p>
+              <p className="text-xl font-bold text-renacer-600 mt-1">30 minutos</p>
             </div>
             <div className="w-12 h-12 bg-renacer-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">👥</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-white to-purple-50 rounded-2xl shadow-md p-6 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm font-medium">Consultas este mes</p>
-              <p className="text-3xl font-bold text-gray-800 mt-1">{stats.consultasMes}</p>
-            </div>
-            <div className="w-12 h-12 bg-renacer-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">🔍</span>
+              <span className="text-2xl">⏱️</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Buscador */}
+      {/* Buscador y botón de registro */}
       <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-100">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="flex-1 w-full">
             <label className="block text-sm font-medium text-gray-700 mb-1">Buscar vendedora</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
@@ -130,64 +222,76 @@ function AdminDashboard() {
                 placeholder="Nombre o cédula..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
               />
             </div>
           </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-renacer-600 text-white px-6 py-2 rounded-xl hover:bg-renacer-700 transition flex items-center gap-2 whitespace-nowrap"
+          >
+            <span className="text-xl">+</span> Reportar Vendedora
+          </button>
         </div>
-        
-        {busqueda && filteredVendedoras.length > 0 && (
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-sm text-gray-500 mb-2">Resultados encontrados: {filteredVendedoras.length}</p>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {filteredVendedoras.map((v) => (
-                <div key={v.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                  <div>
-                    <p className="font-medium text-gray-800">{v.nombre}</p>
-                    <p className="text-sm text-gray-500">Cédula: {v.cedula}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-xs ${getColorReputacion(v.reputacion)}`}>
-                    {getTextoReputacion(v.reputacion)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Tabla de vendedoras */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
-        <div className="px-6 py-4 border-b bg-gray-50">
-          <h3 className="text-lg font-semibold text-gray-800">Listado de Vendedoras</h3>
-        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cédula</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reputación</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zona</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredVendedoras.slice(0, 10).map((v) => (
-                <tr key={v.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 font-medium text-gray-800">{v.nombre}</td>
-                  <td className="px-6 py-4 text-gray-600">{v.cedula}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs ${getColorReputacion(v.reputacion)}`}>
-                      {getTextoReputacion(v.reputacion)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{v.gerenteZona || 'Sin asignar'}</td>
-                </tr>
-              ))}
+              {filteredVendedoras.map((v) => {
+                const puede = puedeEditar(v);
+                const tiempo = tiempoRestante[v.id];
+                return (
+                  <tr key={v.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4 font-medium text-gray-800">{v.nombre}</td>
+                    <td className="px-6 py-4 text-gray-600">{v.cedula}</td>
+                    <td className="px-6 py-4 text-gray-600">{v.telefono || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{v.direccion || '-'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs ${getColorReputacion(v.reputacion)}`}>
+                        {getTextoReputacion(v.reputacion)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 text-sm">
+                      {new Date(v.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {tiempo ? getTiempoTexto(tiempo) : 'Tiempo expirado'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <select
+                        onChange={(e) => handleEdit(v.id, e.target.value)}
+                        disabled={!puede}
+                        className={`border rounded-lg px-2 py-1 text-sm ${!puede ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        value={v.reputacion}
+                      >
+                        <option value="POSITIVA">✅ Positiva</option>
+                        <option value="OBSERVADA">⚠️ Observada</option>
+                        <option value="RESTRINGIDA">🔴 Restringida</option>
+                        <option value="NUEVA">🔵 Nueva</option>
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredVendedoras.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
-                    No hay vendedoras registradas
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                    No has reportado vendedoras aún
                   </td>
                 </tr>
               )}
@@ -195,8 +299,85 @@ function AdminDashboard() {
           </table>
         </div>
       </div>
-    </Layout>
+
+      {/* Modal para reportar nueva vendedora */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-texto">Reportar Vendedora</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+            <p className="text-sm text-amber-600 mb-4">
+              ⚠️ Solo puedes reportar vendedoras con reputación OBSERVADA o RESTRINGIDA
+            </p>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cédula *</label>
+                <input
+                  type="text"
+                  value={formData.cedula}
+                  onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  required
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <input
+                  type="tel"
+                  value={formData.telefono}
+                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  placeholder="0412-1234567"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <textarea
+                  value={formData.direccion}
+                  onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  placeholder="Dirección de la vendedora"
+                  rows={2}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reputación</label>
+                <select
+                  value={formData.reputacion}
+                  onChange={(e) => setFormData({ ...formData, reputacion: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                >
+                  <option value="OBSERVADA">⚠️ Observada</option>
+                  <option value="RESTRINGIDA">🔴 Restringida</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-2 bg-renacer-600 text-white rounded-xl hover:bg-renacer-700 transition">
+                  Reportar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </LayoutGerente>
   );
 }
 
-export default AdminDashboard;
+export default GerenteDashboard;
