@@ -10,6 +10,8 @@ interface Vendedora {
   gerenteZona: string;
   createdAt: string;
   creadaPorNombre?: string;
+  telefono?: string;
+  direccion?: string;
 }
 
 function GerenteDashboard() {
@@ -22,6 +24,8 @@ function GerenteDashboard() {
     nombre: '',
     cedula: '',
     reputacion: 'OBSERVADA',
+    telefono: '',
+    direccion: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -43,7 +47,6 @@ function GerenteDashboard() {
     fetchVendedoras();
   }, []);
 
-  // Calcular tiempo restante para edición (30 minutos)
   useEffect(() => {
     const interval = setInterval(() => {
       const nuevosTiempos: { [key: number]: number } = {};
@@ -81,15 +84,17 @@ function GerenteDashboard() {
         nombre: formData.nombre,
         cedula: formData.cedula,
         reputacion: formData.reputacion,
+        telefono: formData.telefono,
+        direccion: formData.direccion,
         gerenteZonaId: null,
       });
       setShowModal(false);
-      setFormData({ nombre: '', cedula: '', reputacion: 'OBSERVADA' });
+      setFormData({ nombre: '', cedula: '', reputacion: 'OBSERVADA', telefono: '', direccion: '' });
       fetchVendedoras();
-      setSuccess('✅ Vendedora registrada exitosamente');
+      setSuccess('✅ Vendedora reportada exitosamente');
       setTimeout(() => setSuccess(''), 3000);
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Error al registrar vendedora');
+      setError(error.response?.data?.error || 'Error al reportar vendedora');
     }
   };
 
@@ -186,7 +191,7 @@ function GerenteDashboard() {
                 placeholder="Nombre o cédula..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
               />
             </div>
           </div>
@@ -194,7 +199,7 @@ function GerenteDashboard() {
             onClick={() => setShowModal(true)}
             className="bg-renacer-600 text-white px-6 py-2 rounded-xl hover:bg-renacer-700 transition flex items-center gap-2 whitespace-nowrap"
           >
-            <span className="text-xl">+</span> Registrar Vendedora
+            <span className="text-xl">+</span> Reportar Vendedora
           </button>
         </div>
       </div>
@@ -206,9 +211,11 @@ function GerenteDashboard() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cédula</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reputación</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Registro</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo restante</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
@@ -220,6 +227,8 @@ function GerenteDashboard() {
                   <tr key={v.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 font-medium text-gray-800">{v.nombre}</td>
                     <td className="px-6 py-4 text-gray-600">{v.cedula}</td>
+                    <td className="px-6 py-4 text-gray-600">{v.telefono || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{v.direccion || '-'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-xs ${getColorReputacion(v.reputacion)}`}>
                         {getTextoReputacion(v.reputacion)}
@@ -243,14 +252,14 @@ function GerenteDashboard() {
                         <option value="RESTRINGIDA">🔴 Restringida</option>
                         <option value="NUEVA">🔵 Nueva</option>
                       </select>
-                     </td>
+                    </td>
                   </tr>
                 );
               })}
               {filteredVendedoras.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                    No has registrado vendedoras aún
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                    No has reportado vendedoras aún
                   </td>
                 </tr>
               )}
@@ -259,15 +268,16 @@ function GerenteDashboard() {
         </div>
       </div>
 
+      {/* Modal para reportar vendedora */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-texto">Registrar Vendedora</h2>
+              <h2 className="text-xl font-bold text-texto">Reportar Vendedora</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
             <p className="text-sm text-amber-600 mb-4">
-              ⚠️ Solo puedes registrar vendedoras con reputación OBSERVADA o RESTRINGIDA
+              ⚠️ Solo puedes reportar vendedoras con reputación OBSERVADA o RESTRINGIDA
             </p>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
@@ -292,6 +302,26 @@ function GerenteDashboard() {
                 />
               </div>
               <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <input
+                  type="tel"
+                  value={formData.telefono}
+                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  placeholder="0412-1234567"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <textarea
+                  value={formData.direccion}
+                  onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-renacer-500"
+                  placeholder="Dirección de la vendedora"
+                  rows={2}
+                />
+              </div>
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reputación</label>
                 <select
                   value={formData.reputacion}
@@ -307,7 +337,7 @@ function GerenteDashboard() {
                   Cancelar
                 </button>
                 <button type="submit" className="px-4 py-2 bg-renacer-600 text-white rounded-xl hover:bg-renacer-700 transition">
-                  Guardar
+                  Reportar
                 </button>
               </div>
             </form>
