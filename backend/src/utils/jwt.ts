@@ -16,12 +16,12 @@ const SECRET = process.env.JWT_SECRET || 'mi-secreto-super-seguro-cambiar-en-pro
  * 
  * Crea un token firmado con los datos del usuario
  * 
- * @param usuario - Datos del usuario (id, email, rol)
+ * @param usuario - Datos del usuario (id, email, rol, gerenteZonaId)
  * @returns Token JWT válido por 24 horas
  */
-export function generarToken(usuario: { id: number; email: string; rol: string }) {
+export function generarToken(usuario: { id: number; email: string; rol: string; gerenteZonaId?: number }) {
   return jwt.sign(
-    { id: usuario.id, email: usuario.email, rol: usuario.rol },
+    { id: usuario.id, email: usuario.email, rol: usuario.rol, gerenteZonaId: usuario.gerenteZonaId },
     SECRET,
     { expiresIn: '24h' }
   )
@@ -37,5 +37,5 @@ export function generarToken(usuario: { id: number; email: string; rol: string }
  * @throws Error si el token es inválido o ha expirado
  */
 export function verificarToken(token: string) {
-  return jwt.verify(token, SECRET) as { id: number; email: string; rol: string }
+  return jwt.verify(token, SECRET) as { id: number; email: string; rol: string; gerenteZonaId?: number }
 }

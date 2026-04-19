@@ -23,7 +23,7 @@ import pool from '../db'
  * @throws Error si el usuario no existe o la contraseña es incorrecta
  */
 export async function login(email: string, password: string) {
-  // Buscar usuario por email
+  // Buscar usuario por email incluyendo gerenteZonaId
   const result = await pool.query(
     `SELECT id, email, nombre, password, rol, "gerenteZonaId" 
      FROM "Usuario" 
@@ -43,11 +43,12 @@ export async function login(email: string, password: string) {
     throw new Error('Contraseña incorrecta')
   }
 
-  // Generar token JWT con los datos del usuario
+  // Generar token JWT incluyendo gerenteZonaId
   const token = generarToken({
     id: usuario.id,
     email: usuario.email,
-    rol: usuario.rol
+    rol: usuario.rol,
+    gerenteZonaId: usuario.gerenteZonaId
   })
 
   return {

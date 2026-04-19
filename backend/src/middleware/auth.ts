@@ -34,8 +34,13 @@ export function autenticar(req: Request, res: Response, next: NextFunction) {
   try {
     // Decodificar y verificar el token
     const decoded = verificarToken(token)
-    // Adjuntar el usuario decodificado a la petición
-    ;(req as any).usuario = decoded
+    // Adjuntar el usuario decodificado a la petición (incluyendo gerenteZonaId)
+    ;(req as any).usuario = {
+      id: decoded.id,
+      email: decoded.email,
+      rol: decoded.rol,
+      gerenteZonaId: decoded.gerenteZonaId
+    }
     next()
   } catch (error) {
     return res.status(401).json({ error: 'Token inválido o expirado' })
