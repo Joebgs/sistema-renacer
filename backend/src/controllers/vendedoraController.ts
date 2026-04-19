@@ -88,6 +88,12 @@ export async function crearVendedoraController(req: Request, res: Response) {
     const { nombre, cedula, reputacion, telefono, direccion } = req.body;
     const usuario = (req as any).usuario;
 
+    // Validar que el gerente tenga gerenteZonaId
+    if (!usuario.gerenteZonaId) {
+      console.error('Gerente sin gerenteZonaId:', usuario);
+      return res.status(400).json({ error: 'Usuario gerente no tiene zona asignada' });
+    }
+
     let vendedoraResult = await pool.query(
       `SELECT id FROM "Vendedora" WHERE cedula = $1`,
       [cedula]
@@ -107,12 +113,27 @@ export async function crearVendedoraController(req: Request, res: Response) {
       vendedoraId = vendedoraResult.rows[0].id;
     }
 
-    // Corregido: gerenteZonaId (con I mayúscula al final)
-    await pool.query(
-      `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
-       VALUES ($1, $2, $3)`,
+    // Verificar si ya existe un reporte idéntico en los últimos 10 segundos
+    const existeReporte = await pool.query(
+      `SELECT id FROM "HistorialVendedora" 
+       WHERE "vendedoraId" = $1 AND "gerenteZonaId" = $2 AND reputacion = $3
+       AND "fechaReporte" > NOW() - INTERVAL '10 seconds'`,
       [vendedoraId, usuario.gerenteZonaId, reputacion]
     );
+
+    if (existeReporte.rows.length === 0) {
+      // No existe reporte reciente, insertar
+      await pool.query(
+        `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+         VALUES ($1, $2, $3)`,
+        [vendedoraId, usuario.gerenteZonaId, reputacion]
+      );
+      console.log(`✅ Reporte creado: vendedora ${vendedoraId}, gerente ${usuario.gerenteZonaId}, reputacion ${reputacion}`);
+    } else {
+      // Reporte duplicado evitado
+      console.log(`⚠️ Reporte duplicado evitado para vendedora ${vendedoraId}, gerente ${usuario.gerenteZonaId}`);
+      return res.status(409).json({ mensaje: 'Ya has reportado esta vendedora recientemente con la misma reputación' });
+    }
 
     res.status(201).json({ mensaje: 'Vendedora reportada correctamente' });
   } catch (error: any) {
@@ -139,12 +160,21 @@ export async function actualizarVendedoraController(req: Request, res: Response)
     }
 
     if (usuario.rol === 'ADMIN' || usuario.rol === 'AUXILIAR') {
-      // Corregido: gerenteZonaId
-      await pool.query(
-        `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
-         VALUES ($1, $2, $3)`,
+      // Verificar duplicado para admin/auxiliar
+      const existeReporte = await pool.query(
+        `SELECT id FROM "HistorialVendedora" 
+         WHERE "vendedoraId" = $1 AND "gerenteZonaId" = $2 AND reputacion = $3
+         AND "fechaReporte" > NOW() - INTERVAL '10 seconds'`,
         [id, vendedora.gerenteZonaId, reputacion]
       );
+
+      if (existeReporte.rows.length === 0) {
+        await pool.query(
+          `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+           VALUES ($1, $2, $3)`,
+          [id, vendedora.gerenteZonaId, reputacion]
+        );
+      }
       return res.json({ mensaje: 'Reporte actualizado' });
     }
 
@@ -159,12 +189,21 @@ export async function actualizarVendedoraController(req: Request, res: Response)
       });
     }
 
-    // Corregido: gerenteZonaId
-    await pool.query(
-      `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
-       VALUES ($1, $2, $3)`,
+    // Verificar duplicado para gerente
+    const existeReporte = await pool.query(
+      `SELECT id FROM "HistorialVendedora" 
+       WHERE "vendedoraId" = $1 AND "gerenteZonaId" = $2 AND reputacion = $3
+       AND "fechaReporte" > NOW() - INTERVAL '10 seconds'`,
       [id, usuario.gerenteZonaId, reputacion]
     );
+
+    if (existeReporte.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO "HistorialVendedora" ("vendedoraId", "gerenteZonaId", reputacion)
+         VALUES ($1, $2, $3)`,
+        [id, usuario.gerenteZonaId, reputacion]
+      );
+    }
 
     res.json({ mensaje: 'Reporte actualizado' });
   } catch (error: any) {
