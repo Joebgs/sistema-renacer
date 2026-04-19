@@ -1,7 +1,32 @@
-﻿import { Request, Response } from 'express';
+﻿/**
+ * CONTROLADOR DE VENDEDORAS
+ * 
+ * Este archivo maneja todas las operaciones relacionadas con vendedoras:
+ * - Listar vendedoras (con filtros según rol del usuario)
+ * - Buscar vendedora por cédula (acceso público)
+ * - Crear/reportar nueva vendedora (con validaciones)
+ * - Actualizar reputación (con reglas de tiempo para gerentes)
+ * - Eliminar vendedora (solo admin/auxiliar)
+ * 
+ * @module VendedoraController
+ */
+
+import { Request, Response } from 'express';
 import pool from '../db';
 import { registrarConsultaAuditoria } from '../middleware/security';
 
+/**
+ * LISTAR VENDEDORAS
+ * 
+ * Endpoint: GET /api/vendedora
+ * 
+ * Reglas de acceso:
+ * - ADMIN o AUXILIAR: ven todas las vendedoras
+ * - GERENTE: solo ve las vendedoras que él mismo reportó
+ * 
+ * @param req - Petición HTTP (contiene usuario autenticado en req.usuario)
+ * @param res - Respuesta HTTP
+ */
 export async function listarVendedorasController(req: Request, res: Response) {
   try {
     const usuario = (req as any).usuario;
@@ -12,6 +37,7 @@ export async function listarVendedorasController(req: Request, res: Response) {
     `;
     const params: any[] = [];
 
+    // Si es gerente, filtrar solo sus propios reportes
     if (usuario.rol === 'GERENTE_ZONA') {
       query += ` WHERE v."creadaPorId" = $1`;
       params.push(usuario.id);
@@ -26,6 +52,23 @@ export async function listarVendedorasController(req: Request, res: Response) {
   }
 }
 
+/**
+ * BUSCAR VENDEDORA POR CÉDULA
+ * 
+ * Endpoint: GET /api/vendedora/buscar/:cedula
+ * 
+ * Acceso: PÚBLICO (no requiere autenticación)
+ * 
+ * Flujo:
+ * 1. Validar y limpiar cédula
+ * 2. Buscar vendedora en la base de datos
+ * 3. Obtener historial completo de reportes
+ * 4. Registrar auditoría (IP, usuario, fecha)
+ * 5. Devolver datos + historial
+ * 
+ * @param req - Petición HTTP (contiene cédula en params)
+ * @param res - Respuesta HTTP
+ */
 export async function buscarVendedoraController(req: Request, res: Response) {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const { cedula } = req.params;
@@ -34,7 +77,7 @@ export async function buscarVendedoraController(req: Request, res: Response) {
   const cedulaStr = Array.isArray(cedula) ? cedula[0] : cedula;
 
   try {
-    // Obtener datos de la vendedora
+    // 1. Obtener datos de la vendedora
     const vendedoraResult = await pool.query(
       `SELECT v.* FROM "Vendedora" v WHERE v.cedula = $1`,
       [cedulaStr]
@@ -43,7 +86,7 @@ export async function buscarVendedoraController(req: Request, res: Response) {
     const exitosa = vendedoraResult.rows.length > 0;
     const vendedora = exitosa ? vendedoraResult.rows[0] : null;
 
-    // Obtener historial de reportes
+    // 2. Obtener historial de reportes (si existe)
     let historial = [];
     if (exitosa && vendedora.id) {
       const historialResult = await pool.query(
@@ -57,6 +100,7 @@ export async function buscarVendedoraController(req: Request, res: Response) {
       historial = historialResult.rows;
     }
     
+    // 3. Registrar auditoría (para seguridad)
     await registrarConsultaAuditoria(
       cedulaStr, 
       usuario?.id || null, 
@@ -69,6 +113,7 @@ export async function buscarVendedoraController(req: Request, res: Response) {
       return res.status(404).json({ mensaje: 'Vendedora no encontrada' });
     }
     
+    // 4. Devolver datos completos
     res.json({
       ...vendedora,
       historial: historial.map(h => ({
@@ -85,6 +130,19 @@ export async function buscarVendedoraController(req: Request, res: Response) {
   }
 }
 
+/**
+ * CREAR / REPORTAR NUEVA VENDEDORA
+ * 
+ * Endpoint: POST /api/vendedora
+ * 
+ * Reglas:
+ * - Admin/Auxiliar: pueden reportar cualquier vendedora
+ * - Gerente: solo puede reportar vendedoras con reputación OBSERVADA o RESTRINGIDA
+ * - Si la cédula ya existe, solo se agrega un nuevo reporte al historial
+ * 
+ * @param req - Petición HTTP (contiene datos de la vendedora en body)
+ * @param res - Respuesta HTTP
+ */
 export async function crearVendedoraController(req: Request, res: Response) {
   try {
     const { nombre, cedula, reputacion, telefono, direccion } = req.body;
@@ -99,7 +157,7 @@ export async function crearVendedoraController(req: Request, res: Response) {
     let vendedoraId;
     
     if (vendedoraResult.rows.length === 0) {
-      // Crear nueva vendedora
+      // Crear nueva vendedora (primer reporte)
       const insertResult = await pool.query(
         `INSERT INTO "Vendedora" (nombre, cedula, telefono, direccion, "creadaPorId")
          VALUES ($1, $2, $3, $4, $5)
@@ -108,6 +166,7 @@ export async function crearVendedoraController(req: Request, res: Response) {
       );
       vendedoraId = insertResult.rows[0].id;
     } else {
+      // Vendedora ya existe, usar su ID para agregar otro reporte
       vendedoraId = vendedoraResult.rows[0].id;
     }
 
@@ -125,12 +184,25 @@ export async function crearVendedoraController(req: Request, res: Response) {
   }
 }
 
+/**
+ * ACTUALIZAR REPUTACIÓN DE VENDEDORA
+ * 
+ * Endpoint: PUT /api/vendedora/:id
+ * 
+ * Reglas:
+ * - Admin/Auxiliar: pueden editar cualquier vendedora sin restricciones
+ * - Gerente: solo puede editar vendedoras que él reportó y dentro de 30 minutos
+ * 
+ * @param req - Petición HTTP (contiene id en params, reputación en body)
+ * @param res - Respuesta HTTP
+ */
 export async function actualizarVendedoraController(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { reputacion } = req.body;
     const usuario = (req as any).usuario;
 
+    // Obtener la vendedora para verificar permisos
     const vendedoraResult = await pool.query(
       `SELECT * FROM "Vendedora" WHERE id = $1`,
       [id]
@@ -142,6 +214,7 @@ export async function actualizarVendedoraController(req: Request, res: Response)
       return res.status(404).json({ error: 'Vendedora no encontrada' });
     }
 
+    // Admin y Auxiliar pueden editar cualquier vendedora
     if (usuario.rol === 'ADMIN' || usuario.rol === 'AUXILIAR') {
       // Agregar nuevo reporte al historial
       await pool.query(
@@ -152,10 +225,12 @@ export async function actualizarVendedoraController(req: Request, res: Response)
       return res.json({ mensaje: 'Reporte actualizado' });
     }
 
+    // Gerente solo puede editar vendedoras que él reportó
     if (vendedora.creadaPorId !== usuario.id) {
       return res.status(403).json({ error: 'Solo puedes editar vendedoras que registraste tú' });
     }
     
+    // Verificar ventana de 30 minutos
     const minutosTranscurridos = (Date.now() - new Date(vendedora.createdAt).getTime()) / 60000;
     if (minutosTranscurridos > 30) {
       return res.status(403).json({ 
@@ -177,11 +252,24 @@ export async function actualizarVendedoraController(req: Request, res: Response)
   }
 }
 
+/**
+ * ELIMINAR VENDEDORA
+ * 
+ * Endpoint: DELETE /api/vendedora/:id
+ * 
+ * Reglas:
+ * - Solo ADMIN o AUXILIAR pueden eliminar vendedoras
+ * - Los GERENTES NO tienen permiso para eliminar
+ * 
+ * @param req - Petición HTTP (contiene id en params)
+ * @param res - Respuesta HTTP
+ */
 export async function eliminarVendedoraController(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const usuario = (req as any).usuario;
 
+    // Verificar permiso
     if (usuario.rol !== 'ADMIN' && usuario.rol !== 'AUXILIAR') {
       return res.status(403).json({ error: 'No tienes permiso para eliminar vendedoras' });
     }

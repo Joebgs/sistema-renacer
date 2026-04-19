@@ -1,11 +1,38 @@
+/**
+ * CONTROLADOR DE MENSAJES
+ * 
+ * Este archivo maneja el sistema de mensajería interna:
+ * - Enviar mensajes (Admin/Auxiliar → Gerentes)
+ * - Recibir mensajes (cada usuario ve los suyos)
+ * - Marcar mensajes como leídos
+ * - Listar gerentes disponibles para enviar mensajes
+ * 
+ * @module MensajeController
+ */
+
 import { Request, Response } from 'express';
 import pool from '../db';
 
+/**
+ * ENVIAR MENSAJE
+ * 
+ * Endpoint: POST /api/mensajes/enviar
+ * 
+ * Acceso: Solo ADMIN o AUXILIAR
+ * 
+ * Tipos de envío:
+ * - A un gerente específico (destinatarioId)
+ * - A TODOS los gerentes (paraTodosGerentes = true)
+ * 
+ * @param req - Petición HTTP (contiene titulo, contenido, destinatarioId, paraTodosGerentes)
+ * @param res - Respuesta HTTP
+ */
 export async function enviarMensajeController(req: Request, res: Response) {
   try {
     const { titulo, contenido, destinatarioId, paraTodosGerentes } = req.body;
     const remitente = (req as any).usuario;
 
+    // Validar que el remitente tenga permisos (Admin o Auxiliar)
     if (remitente.rol !== 'ADMIN' && remitente.rol !== 'AUXILIAR') {
       return res.status(403).json({ error: 'No tienes permiso para enviar mensajes' });
     }
@@ -13,6 +40,7 @@ export async function enviarMensajeController(req: Request, res: Response) {
     let result;
 
     if (paraTodosGerentes) {
+      // Enviar a todos los gerentes
       result = await pool.query(
         `INSERT INTO "Mensaje" (titulo, contenido, "remitenteId", "paraTodosGerentes")
          VALUES ($1, $2, $3, $4)
@@ -20,6 +48,7 @@ export async function enviarMensajeController(req: Request, res: Response) {
         [titulo, contenido, remitente.id, true]
       );
     } else {
+      // Enviar a un gerente específico
       result = await pool.query(
         `INSERT INTO "Mensaje" (titulo, contenido, "remitenteId", "destinatarioId")
          VALUES ($1, $2, $3, $4)
@@ -30,15 +59,31 @@ export async function enviarMensajeController(req: Request, res: Response) {
 
     res.status(201).json({ mensaje: 'Mensaje enviado', data: result.rows[0] });
   } catch (error: any) {
+    console.error('Error al enviar mensaje:', error);
     res.status(500).json({ error: error.message });
   }
 }
 
+/**
+ * RECIBIR MENSAJES
+ * 
+ * Endpoint: GET /api/mensajes/recibidos
+ * 
+ * Acceso: Requiere autenticación (todos los roles)
+ * 
+ * Filtros según rol:
+ * - ADMIN/AUXILIAR: ven todos los mensajes enviados (como historial)
+ * - GERENTE: solo ve mensajes dirigidos a él o mensajes para todos los gerentes
+ * 
+ * @param req - Petición HTTP (contiene usuario autenticado)
+ * @param res - Respuesta HTTP
+ */
 export async function recibirMensajesController(req: Request, res: Response) {
   try {
     const usuario = (req as any).usuario;
 
     if (usuario.rol === 'ADMIN' || usuario.rol === 'AUXILIAR') {
+      // Admin y Auxiliar ven todos los mensajes enviados
       const result = await pool.query(`
         SELECT m.*, u.nombre as "remitenteNombre"
         FROM "Mensaje" m
@@ -47,6 +92,7 @@ export async function recibirMensajesController(req: Request, res: Response) {
       `);
       return res.json(result.rows);
     } else {
+      // Gerente solo ve mensajes para él o para todos
       const result = await pool.query(
         `
         SELECT m.*, u.nombre as "remitenteNombre"
@@ -60,10 +106,25 @@ export async function recibirMensajesController(req: Request, res: Response) {
       return res.json(result.rows);
     }
   } catch (error: any) {
+    console.error('Error al recibir mensajes:', error);
     res.status(500).json({ error: error.message });
   }
 }
 
+/**
+ * MARCAR MENSAJE COMO LEÍDO
+ * 
+ * Endpoint: PUT /api/mensajes/:id/leer
+ * 
+ * Acceso: Requiere autenticación
+ * 
+ * Un usuario solo puede marcar como leído un mensaje que:
+ * - Le fue dirigido a él (destinatarioId)
+ * - O es un mensaje para todos los gerentes (y él es gerente)
+ * 
+ * @param req - Petición HTTP (contiene id del mensaje en params)
+ * @param res - Respuesta HTTP
+ */
 export async function marcarComoLeidoController(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -79,10 +140,24 @@ export async function marcarComoLeidoController(req: Request, res: Response) {
 
     res.json({ mensaje: 'Mensaje marcado como leído', data: result.rows[0] });
   } catch (error: any) {
+    console.error('Error al marcar mensaje como leído:', error);
     res.status(500).json({ error: error.message });
   }
 }
 
+/**
+ * LISTAR GERENTES (para selector de destinatarios)
+ * 
+ * Endpoint: GET /api/mensajes/gerentes
+ * 
+ * Acceso: Solo ADMIN o AUXILIAR
+ * 
+ * Devuelve lista de todos los usuarios con rol GERENTE_ZONA
+ * para que el remitente pueda elegir a quién enviar el mensaje
+ * 
+ * @param req - Petición HTTP
+ * @param res - Respuesta HTTP
+ */
 export async function listarGerentesController(req: Request, res: Response) {
   try {
     const result = await pool.query(
@@ -90,6 +165,7 @@ export async function listarGerentesController(req: Request, res: Response) {
     );
     res.json(result.rows);
   } catch (error: any) {
+    console.error('Error al listar gerentes:', error);
     res.status(500).json({ error: error.message });
   }
 }
