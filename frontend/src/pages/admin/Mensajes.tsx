@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import Layout from '../../components/Layout';
+import LayoutAdmin from '../../components/LayoutAdmin';
 import api from '../../services/api';
 
 interface Mensaje {
@@ -61,7 +61,6 @@ const useMensajes = () => {
       setMensajes(prev => prev.map(m => m.id === id ? { ...m, leido: true } : m));
     } catch (err) {
       console.error(MESSAGES.MARK_READ_ERROR, err);
-      // Opcional: mostrar notificación de error
     }
   }, []);
 
@@ -222,21 +221,19 @@ function AdminMensajes() {
   const handleSendMessage = useCallback(async (data: Omit<FormData, 'destinatarioId'> & { destinatarioId: number | null }) => {
     try {
       await api.post('/mensajes/enviar', data);
-      fetchMensajes(); // Refrescar lista
-      // Aquí podrías agregar una notificación de éxito en lugar de alert
-      alert(MESSAGES.SUCCESS_SEND); // Temporal, reemplaza con toast
+      fetchMensajes();
+      alert(MESSAGES.SUCCESS_SEND);
     } catch (err) {
-      throw err; // Lanzar para que el modal lo maneje
+      throw err;
     }
   }, [fetchMensajes]);
 
-  // Memoizar la lista de mensajes para evitar re-renders
   const mensajesMemo = useMemo(() => mensajes, [mensajes]);
 
-  if (loading) return <Layout title="Mensajes"><div>{MESSAGES.LOADING}</div></Layout>;
+  if (loading) return <LayoutAdmin title="Mensajes"><div>{MESSAGES.LOADING}</div></LayoutAdmin>;
 
   return (
-    <Layout title="Sistema de Mensajes">
+    <LayoutAdmin title="Sistema de Mensajes">
       {(mensajesError || gerentesError) && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
           {mensajesError || gerentesError}
@@ -297,7 +294,7 @@ function AdminMensajes() {
         onSubmit={handleSendMessage}
         gerentes={gerentes}
       />
-    </Layout>
+    </LayoutAdmin>
   );
 }
 
