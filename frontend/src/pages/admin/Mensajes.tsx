@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Layout from '../../components/Layout';
 import api from '../../services/api';
 
@@ -19,78 +19,235 @@ interface Gerente {
   email: string;
 }
 
-function AdminMensajes() {
+interface FormData {
+  titulo: string;
+  contenido: string;
+  destinatarioId: string;
+  paraTodos: boolean;
+}
+
+// Constantes para mensajes
+const MESSAGES = {
+  LOADING: 'Cargando...',
+  ERROR_LOAD: 'Error al cargar datos. Inténtalo de nuevo.',
+  ERROR_SEND: 'Error al enviar mensaje. Verifica los datos.',
+  SUCCESS_SEND: 'Mensaje enviado correctamente.',
+  MARK_READ_ERROR: 'Error al marcar como leído.',
+};
+
+// Hook personalizado para manejar mensajes
+const useMensajes = () => {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
-  const [gerentes, setGerentes] = useState<Gerente[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMensajes = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get('/mensajes/recibidos');
+      setMensajes(response.data);
+    } catch (err) {
+      setError(MESSAGES.ERROR_LOAD);
+      console.error('Error al cargar mensajes:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const marcarLeido = useCallback(async (id: number) => {
+    try {
+      await api.put(`/mensajes/${id}/leer`);
+      setMensajes(prev => prev.map(m => m.id === id ? { ...m, leido: true } : m));
+    } catch (err) {
+      console.error(MESSAGES.MARK_READ_ERROR, err);
+      // Opcional: mostrar notificación de error
+    }
+  }, []);
+
+  return { mensajes, loading, error, fetchMensajes, marcarLeido };
+};
+
+// Hook personalizado para gerentes
+const useGerentes = () => {
+  const [gerentes, setGerentes] = useState<Gerente[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGerentes = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await api.get('/mensajes/gerentes');
+      setGerentes(response.data);
+    } catch (err) {
+      setError(MESSAGES.ERROR_LOAD);
+      console.error('Error al cargar gerentes:', err);
+    }
+  }, []);
+
+  return { gerentes, error, fetchGerentes };
+};
+
+// Componente Modal separado
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Omit<FormData, 'destinatarioId'> & { destinatarioId: number | null }) => void;
+  gerentes: Gerente[];
+}
+
+const NuevoMensajeModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit, gerentes }) => {
+  const [formData, setFormData] = useState<FormData>({
     titulo: '',
     contenido: '',
     destinatarioId: '',
     paraTodos: false,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchMensajes = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.titulo.trim() || !formData.contenido.trim()) return;
+
+    setIsSubmitting(true);
     try {
-      const response = await api.get('/mensajes/recibidos');
-      setMensajes(response.data);
-    } catch (error) {
-      console.error('Error al cargar mensajes:', error);
+      await onSubmit({
+        titulo: formData.titulo,
+        contenido: formData.contenido,
+        destinatarioId: formData.paraTodos ? null : parseInt(formData.destinatarioId),
+        paraTodos: formData.paraTodos,
+      });
+      setFormData({ titulo: '', contenido: '', destinatarioId: '', paraTodos: false });
+      onClose();
+    } catch (err) {
+      console.error(MESSAGES.ERROR_SEND, err);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const fetchGerentes = async () => {
-    try {
-      const response = await api.get('/mensajes/gerentes');
-      setGerentes(response.data);
-    } catch (error) {
-      console.error('Error al cargar gerentes:', error);
-    }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
   };
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleOverlayClick}
+      onKeyDown={handleKeyDown}
+      role="dialog"
+      aria-labelledby="modal-title"
+      aria-modal="true"
+    >
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 id="modal-title" className="text-xl font-bold mb-4">Enviar Mensaje</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Destinatario</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 mb-2"
+              value={formData.paraTodos ? 'todos' : 'individual'}
+              onChange={(e) => setFormData({ ...formData, paraTodos: e.target.value === 'todos' })}
+              aria-label="Seleccionar destinatario"
+            >
+              <option value="individual">👤 Gerente específico</option>
+              <option value="todos">📢 Todos los gerentes</option>
+            </select>
+            {!formData.paraTodos && (
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={formData.destinatarioId}
+                onChange={(e) => setFormData({ ...formData, destinatarioId: e.target.value })}
+                required={!formData.paraTodos}
+                aria-label="Seleccionar gerente"
+              >
+                <option value="">Seleccionar gerente...</option>
+                {gerentes.map((g) => (
+                  <option key={g.id} value={g.id}>{g.nombre} - {g.email}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Título</label>
+            <input
+              type="text"
+              value={formData.titulo}
+              onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              required
+              aria-label="Título del mensaje"
+            />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Mensaje</label>
+            <textarea
+              value={formData.contenido}
+              onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              rows={4}
+              required
+              aria-label="Contenido del mensaje"
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg" disabled={isSubmitting}>
+              Cancelar
+            </button>
+            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-lg" disabled={isSubmitting}>
+              {isSubmitting ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+function AdminMensajes() {
+  const { mensajes, loading, error: mensajesError, fetchMensajes, marcarLeido } = useMensajes();
+  const { gerentes, error: gerentesError, fetchGerentes } = useGerentes();
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchMensajes();
     fetchGerentes();
-  }, []);
+  }, [fetchMensajes, fetchGerentes]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = useCallback(async (data: Omit<FormData, 'destinatarioId'> & { destinatarioId: number | null }) => {
     try {
-      await api.post('/mensajes/enviar', {
-        titulo: formData.titulo,
-        contenido: formData.contenido,
-        destinatarioId: formData.paraTodos ? null : parseInt(formData.destinatarioId),
-        paraTodosGerentes: formData.paraTodos,
-      });
-      setShowModal(false);
-      setFormData({ titulo: '', contenido: '', destinatarioId: '', paraTodos: false });
-      fetchMensajes();
-      alert('✅ Mensaje enviado');
-    } catch (error) {
-      alert('❌ Error al enviar mensaje');
+      await api.post('/mensajes/enviar', data);
+      fetchMensajes(); // Refrescar lista
+      // Aquí podrías agregar una notificación de éxito en lugar de alert
+      alert(MESSAGES.SUCCESS_SEND); // Temporal, reemplaza con toast
+    } catch (err) {
+      throw err; // Lanzar para que el modal lo maneje
     }
-  };
+  }, [fetchMensajes]);
 
-  const marcarLeido = async (id: number) => {
-    try {
-      await api.put(`/mensajes/${id}/leer`);
-      fetchMensajes();
-    } catch (error) {
-      console.error('Error al marcar como leído');
-    }
-  };
+  // Memoizar la lista de mensajes para evitar re-renders
+  const mensajesMemo = useMemo(() => mensajes, [mensajes]);
 
-  if (loading) return <Layout title="Mensajes"><div>Cargando...</div></Layout>;
+  if (loading) return <Layout title="Mensajes"><div>{MESSAGES.LOADING}</div></Layout>;
 
   return (
     <Layout title="Sistema de Mensajes">
+      {(mensajesError || gerentesError) && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
+          {mensajesError || gerentesError}
+        </div>
+      )}
+
       <div className="mb-4">
         <button
           onClick={() => setShowModal(true)}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          aria-label="Abrir modal para nuevo mensaje"
         >
           ✉️ Nuevo Mensaje
         </button>
@@ -108,13 +265,14 @@ function AdminMensajes() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {mensajes.map((m) => (
+            {mensajesMemo.map((m) => (
               <tr key={m.id} className={!m.leido ? 'bg-blue-50' : ''}>
                 <td className="px-6 py-4">
                   {!m.leido && (
                     <button
                       onClick={() => marcarLeido(m.id)}
                       className="text-blue-600 hover:text-blue-800 text-sm"
+                      aria-label={`Marcar mensaje ${m.titulo} como leído`}
                     >
                       📖 Marcar leído
                     </button>
@@ -133,68 +291,12 @@ function AdminMensajes() {
         </table>
       </div>
 
-      {/* Modal para enviar mensaje */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Enviar Mensaje</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-1">Destinatario</label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 mb-2"
-                  onChange={(e) => setFormData({ ...formData, paraTodos: e.target.value === 'todos' })}
-                  defaultValue=""
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="todos">📢 Todos los gerentes</option>
-                  <option value="individual">👤 Gerente específico</option>
-                </select>
-                {!formData.paraTodos && (
-                  <select
-                    className="w-full border rounded-lg px-3 py-2"
-                    onChange={(e) => setFormData({ ...formData, destinatarioId: e.target.value })}
-                    required={!formData.paraTodos}
-                  >
-                    <option value="">Seleccionar gerente...</option>
-                    {gerentes.map((g) => (
-                      <option key={g.id} value={g.id}>{g.nombre} - {g.email}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-1">Título</label>
-                <input
-                  type="text"
-                  value={formData.titulo}
-                  onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2"
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-1">Mensaje</label>
-                <textarea
-                  value={formData.contenido}
-                  onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2"
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
-                  Cancelar
-                </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-lg">
-                  Enviar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <NuevoMensajeModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleSendMessage}
+        gerentes={gerentes}
+      />
     </Layout>
   );
 }

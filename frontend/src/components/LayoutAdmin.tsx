@@ -1,13 +1,13 @@
 import Layout from './Layout';
 import { LAYOUT_CONFIGS } from '../constants/layout';
 
-interface LayoutAuxiliarProps {
+interface LayoutAdminProps {
   children: React.ReactNode;
   title: string;
 }
 
-function LayoutAuxiliar({ children, title }: LayoutAuxiliarProps) {
-  const config = LAYOUT_CONFIGS.AUXILIAR;
+function LayoutAdmin({ children, title }: LayoutAdminProps) {
+  const config = LAYOUT_CONFIGS.ADMIN;
   return (
     <Layout
       title={title}
@@ -24,4 +24,4 @@ function LayoutAuxiliar({ children, title }: LayoutAuxiliarProps) {
   );
 }
 
-export default LayoutAuxiliar;
+export default LayoutAdmin;
