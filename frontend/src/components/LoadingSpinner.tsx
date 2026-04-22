@@ -51,7 +51,7 @@ function LoadingSpinner({
   message = 'Cargando...',
   className = '',
   overlay = false,
-  color = 'border-renacer-600'
+  color = 'renacer-600'
 }: LoadingSpinnerProps) {
   const sizeClasses = {
     sm: 'h-4 w-4',
@@ -60,24 +60,55 @@ function LoadingSpinner({
   };
 
   const renderSpinner = () => {
+    const baseClasses = {
+      dots: 'w-2 h-2 rounded-full animate-bounce',
+      pulse: `rounded-full ${sizeClasses[size]} animate-pulse`,
+      spinner: `animate-spin rounded-full border-b-2 ${sizeClasses[size]}`
+    };
+
+    const colorClasses = {
+      'renacer-600': {
+        dots: 'bg-renacer-600',
+        pulse: 'bg-renacer-600',
+        spinner: 'border-renacer-600'
+      },
+      'blue-600': {
+        dots: 'bg-blue-600',
+        pulse: 'bg-blue-600',
+        spinner: 'border-blue-600'
+      },
+      'green-600': {
+        dots: 'bg-green-600',
+        pulse: 'bg-green-600',
+        spinner: 'border-green-600'
+      },
+      'gray-600': {
+        dots: 'bg-gray-600',
+        pulse: 'bg-gray-600',
+        spinner: 'border-gray-600'
+      }
+    };
+
+    const currentColor = colorClasses[color as keyof typeof colorClasses] || colorClasses['renacer-600'];
+
     switch (variant) {
       case 'dots':
         return (
           <div className="flex space-x-1">
-            <div className={`w-2 h-2 bg-${color.replace('border-', '')} rounded-full animate-bounce`}></div>
-            <div className={`w-2 h-2 bg-${color.replace('border-', '')} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-            <div className={`w-2 h-2 bg-${color.replace('border-', '')} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
+            <div className={`${baseClasses.dots} ${currentColor.dots}`}></div>
+            <div className={`${baseClasses.dots} ${currentColor.dots}`} style={{ animationDelay: '0.1s' }}></div>
+            <div className={`${baseClasses.dots} ${currentColor.dots}`} style={{ animationDelay: '0.2s' }}></div>
           </div>
         );
 
       case 'pulse':
         return (
-          <div className={`rounded-full ${sizeClasses[size]} bg-${color.replace('border-', '')} animate-pulse`}></div>
+          <div className={`${baseClasses.pulse} ${currentColor.pulse}`}></div>
         );
 
       default: // 'spinner'
         return (
-          <div className={`animate-spin rounded-full border-b-2 ${color} ${sizeClasses[size]}`}></div>
+          <div className={`${baseClasses.spinner} ${currentColor.spinner}`}></div>
         );
     }
   };
@@ -101,7 +132,5 @@ function LoadingSpinner({
 
   return content;
 }
-
-export default LoadingSpinner;
 
 export default LoadingSpinner;

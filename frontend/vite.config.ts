@@ -21,22 +21,14 @@ export default defineConfig({
           // Vendor chunk para librerías de terceros
           vendor: ['react', 'react-dom', 'react-router-dom'],
           // UI chunk para componentes de UI
-          ui: ['axios'],
-          // Utils chunk para utilidades
-          utils: ['date-fns']
+          ui: ['axios']
         }
       }
     },
     // Tamaño máximo de chunk
     chunkSizeWarningLimit: 1000,
     // Minificar para producción
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remover console.logs en producción
-        drop_debugger: true
-      }
-    }
+    minify: 'esbuild',
   },
   // Optimizaciones de desarrollo
   optimizeDeps: {
