@@ -10,7 +10,9 @@
 import axios from 'axios';
 
 // URL del backend (producción o desarrollo local)
-const API_URL = 'https://sistema-renacer-api.onrender.com/api';
+const API_URL = import.meta.env.DEV
+  ? '/api'  // En desarrollo usa el proxy de Vite
+  : 'https://sistema-renacer-api.onrender.com/api';  // En producción usa la URL completa
 
 // Crear instancia de axios con configuración base
 const api = axios.create({

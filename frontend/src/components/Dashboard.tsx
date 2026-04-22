@@ -43,12 +43,15 @@ function Dashboard({ rol, title, canEdit = false, canDelete = false, canCreate =
   });
 
   const fetchVendedoras = useCallback(async () => {
-    await wrapAsync(async () => {
-      const endpoint = rol === 'GERENTE' ? '/vendedora/mis-vendedoras' : '/vendedora';
-      const response = await api.get(endpoint);
+    setLoading(true);
+    const result = await wrapAsync(async () => {
+      // Todos los roles usan el mismo endpoint, el backend filtra automáticamente
+      const response = await api.get('/vendedora');
       setVendedoras(response.data);
     }, MESSAGES.ERROR_LOAD);
-  }, [rol, wrapAsync]);
+    setLoading(false);
+    return result;
+  }, [wrapAsync]);
 
   useEffect(() => {
     fetchVendedoras();
